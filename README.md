@@ -9,7 +9,7 @@
 [![Latest release](https://img.shields.io/github/v/release/KayPraktor/ConvoHub?style=for-the-badge&color=0f766e&label=release)](https://github.com/KayPraktor/ConvoHub/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/KayPraktor/ConvoHub/total?style=for-the-badge&color=14b8a6)](https://github.com/KayPraktor/ConvoHub/releases)
 [![License: MIT](https://img.shields.io/github/license/KayPraktor/ConvoHub?style=for-the-badge&color=f59e0b)](LICENSE)
-[![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#limitations)
+[![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTF2MTFIMHpNMTMgMGgxMXYxMUgxM3pNMCAxM2gxMXYxMUgwek0xMyAxM2gxMXYxMUgxM3oiLz48L3N2Zz4=)](#limitations)
 
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
