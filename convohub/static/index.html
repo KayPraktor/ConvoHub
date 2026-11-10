@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ConvoHub</title>
+  <link rel="preload" href="/static/fonts/Vazirmatn-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="/static/icon.png" type="image/png">
+  <script>
+    // Apply the saved theme before the page paints (no flash of the wrong theme).
+    try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <div class="brand">ConvoHub</div>
+      <button id="btn-theme" class="icon-btn" type="button" title="تم: خودکار / روشن / تیره">◐ خودکار</button>
+    </div>
+    <button id="btn-new-chat" class="primary">+ گفتگوی جدید</button>
+    <button id="btn-import">+ ایمپورت مکالمه</button>
+    <div id="ext-pending" class="ext-pending" hidden></div>
+    <input id="search" type="search" placeholder="جستجو در عنوان و متن…" autocomplete="off">
+    <div id="lists" class="lists"></div>
+    <button id="key-warning" class="key-warning" type="button" hidden>
+      🔑 هنوز کلید OpenRouter وارد نشده. برای وارد کردنش اینجا رو بزن.
+    </button>
+    <div class="side-footer">
+      <button id="btn-settings" class="ghost" title="تنظیمات ایجنت: پوشه‌ها، skillها، سرورهای MCP">⚙ ایجنت</button>
+      <button id="btn-connect" class="ghost" title="افزونه‌ی مرورگر و وصل کردن Claude Code و بقیه">🔌 اتصال</button>
+      <button id="btn-key" class="ghost icon-only" title="کلید OpenRouter">🔑</button>
+      <button id="btn-backup" class="ghost icon-only" title="بکاپ">💾</button>
+      <button id="btn-quit" class="ghost icon-only" title="خاموش کردن ConvoHub">⏻</button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <div class="main">
+    <div class="topbar">
+      <button id="btn-menu" class="icon-btn" type="button" title="منو">☰</button>
+      <div class="brand">ConvoHub</div>
+    </div>
+    <main id="view" class="view"></main>
+  </div>
+</div>
+
+<!-- import dialog -->
+<dialog id="import-dialog">
+  <form method="dialog" class="dialog-body" id="import-form">
+    <h2>ایمپورت مکالمه</h2>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="paste">Paste متن</button>
+      <button type="button" class="tab" data-tab="file">فایل</button>
+      <button type="button" class="tab" data-tab="link">لینک share</button>
+    </div>
+
+    <section data-pane="paste">
+      <p class="hint">توی صفحه‌ی چت Ctrl+A و Ctrl+C بزن و اینجا paste کن.</p>
+      <textarea id="paste-text" rows="10" placeholder="متن مکالمه…"></textarea>
+      <div id="paste-info" class="hint"></div>
+    </section>
+
+    <section data-pane="file" hidden>
+      <p class="hint">فایل .txt یا .md، یا خروجی رسمی ChatGPT و Claude (conversations.json).</p>
+      <input id="file-input" type="file" accept=".txt,.md,.markdown,.json">
+    </section>
+
+    <section data-pane="link" hidden>
+      <p class="hint">لینک share عمومی از Gemini، Grok، ChatGPT (یا Claude). خوندنش تا یه دقیقه طول می‌کشه.</p>
+      <input id="link-url" type="url" dir="ltr" placeholder="https://gemini.google.com/share/...">
+    </section>
+
+    <div class="row" id="meta-row">
+      <label>عنوان <input id="import-title" type="text" placeholder="خودکار"></label>
+      <label>منبع
+        <select id="import-source">
+          <option value="">تشخیص خودکار</option>
+          <option value="gemini">Gemini</option>
+          <option value="claude">Claude</option>
+          <option value="grok">Grok</option>
+          <option value="chatgpt">ChatGPT</option>
+          <option value="other">دیگه</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="import-error" class="error" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" id="import-submit" class="primary">ایمپورت</button>
+      <button type="button" id="import-cancel">انصراف</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- context picker -->
+<dialog id="context-dialog">
+  <div class="dialog-body">
+    <h2>مکالمه‌هایی که مدل ببینه</h2>
+    <input id="context-filter" type="search" placeholder="فیلتر…">
+    <ul id="context-options" class="context-options"></ul>
+    <div class="dialog-actions">
+      <button type="button" id="context-save" class="primary">ذخیره</button>
+      <button type="button" id="context-cancel">انصراف</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- agent settings -->
+<dialog id="settings-dialog">
+  <div class="dialog-body">
+    <h2>تنظیمات ایجنت</h2>
+    <label class="field">پوشه‌های مجاز (هر خط یه مسیر کامل)
+      <span class="hint">مدل فقط همین‌جاها رو می‌بینه. خوندن همیشه آزاده، حتی وقتی حالت ایجنت خاموشه؛ نوشتن، اجرای دستور و حذف فقط توی حالت ایجنت و هر بار با اجازه‌ی تو انجام میشه. فایل‌هایی مثل <code>.env</code> هیچ‌وقت خونده نمیشن.</span>
+      <textarea id="set-folders" rows="3" dir="ltr" placeholder="D:\Projects\MyApp"></textarea>
+    </label>
+    <label class="field">پوشه‌های skill (هر خط یه مسیر؛ فقط خوندنی)
+      <span class="hint">هر skill یه پوشه با فایل <code>SKILL.md</code> است.</span>
+      <textarea id="set-skills" rows="2" dir="ltr" placeholder="%USERPROFILE%\.claude\skills"></textarea>
+    </label>
+    <ul id="set-skill-list" class="skill-list"></ul>
+    <label class="field">سرورهای MCP (همون فرمت <code>mcpServers</code> بقیه‌ی ابزارها)
+      <span class="hint">ابزارهایی که خودشون رو «فقط‌خواندنی» معرفی کنن آزادن؛ بقیه هر بار اجازه می‌گیرن.</span>
+      <textarea id="set-mcp" rows="7" dir="ltr" placeholder='{"mcpServers": {"name": {"command": "uv", "args": ["..."]}}}'></textarea>
+    </label>
+    <div class="field">ابزارهای MCP با «همیشه اجازه بده»
+      <span class="hint">این‌ها بدون پرسیدن اجرا میشن. با × اجازه‌شون پس گرفته میشه (همون لحظه ذخیره میشه).</span>
+      <ul id="set-always" class="skill-list"></ul>
+    </div>
+    <div class="field">افزونه‌ی مرورگر
+      <span class="hint">فقط افزونه‌ای که ID‌ش اینجاست می‌تونه به ConvoHub مکالمه بفرسته. ID رو از صفحه‌ی <code>chrome://extensions</code> بردار، یا وقتی افزونه اولین بار وصل میشه از نوار بالای کتابخونه «قبول» رو بزن.</span>
+      <div class="row">
+        <input id="set-ext-id" type="text" dir="ltr" placeholder="abcdefghijklmnopabcdefghijklmnop">
+        <button type="button" id="set-ext-save">ذخیره‌ی ID</button>
+      </div>
+    </div>
+    <div id="settings-error" class="error" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" id="settings-save" class="primary">ذخیره</button>
+      <button type="button" id="settings-cancel">انصراف</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- OpenRouter key -->
+<dialog id="key-dialog">
+  <form method="dialog" class="dialog-body" id="key-form">
+    <h2>کلید OpenRouter</h2>
+    <p class="hint">
+      ConvoHub برای حرف زدن با مدل‌ها از <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">OpenRouter</a> استفاده می‌کنه.
+      اونجا یه حساب بساز، کمی اعتبار بخر و از صفحه‌ی Keys یه کلید بساز (با <code>sk-or-</code> شروع میشه).
+    </p>
+    <div id="key-state" class="key-state"></div>
+    <label class="field">کلید
+      <input id="key-input" type="password" dir="ltr" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…">
+    </label>
+    <p class="hint">کلید فقط روی همین کامپیوتر و رمزنگاری‌شده با حساب ویندوزت ذخیره میشه؛ توی بکاپ‌ها نمیره و هیچ‌جا کامل نشون داده نمیشه.</p>
+    <div id="key-error" class="error" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" id="key-save" class="primary">ذخیره و بررسی</button>
+      <button type="button" id="key-remove" class="danger" hidden>پاک کردن کلید ذخیره‌شده</button>
+      <button type="button" id="key-close">بستن</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- connect: browser extension + MCP for other tools -->
+<dialog id="connect-dialog" class="wide">
+  <div class="dialog-body">
+    <h2>اتصال</h2>
+    <div class="tabs">
+      <button type="button" class="tab active" data-ctab="ext">افزونه‌ی مرورگر</button>
+      <button type="button" class="tab" data-ctab="mcp">Claude Code و بقیه</button>
+    </div>
+    <section data-cpane="ext" class="connect-pane">
+      <p class="hint">با افزونه، چتی که توی Chrome یا Edge باز کردی (Gemini، ChatGPT، Claude، Grok) با یه کلیک میاد توی کتابخونه و پیام‌های جدیدش خودکار اضافه میشن.</p>
+      <ol class="howto">
+        <li>پوشه‌ی افزونه: <code id="ext-dir" dir="ltr"></code>
+          <div class="row-btns"><button type="button" id="ext-open">باز کردن پوشه</button><button type="button" class="copy" data-copy-from="ext-dir">کپی مسیر</button></div></li>
+        <li>توی Chrome بنویس <code dir="ltr">chrome://extensions</code> (توی Edge: <code dir="ltr">edge://extensions</code>) و Enter بزن.</li>
+        <li><b>Developer mode</b> (حالت توسعه‌دهنده) رو روشن کن.</li>
+        <li><b>Load unpacked</b> رو بزن و همون پوشه‌ی بالا رو انتخاب کن.</li>
+        <li>یه صفحه‌ی چت (مثلاً یه مکالمه‌ی ChatGPT) رو باز یا refresh کن. اینجا، بالای کتابخونه، نوار «یه افزونه می‌خواد وصل بشه» میاد: <b>قبول</b> رو بزن.</li>
+        <li>حالا روی صفحه‌ی چت، پایین سمت راست، دکمه‌ی «بفرست به ConvoHub» رو بزن.</li>
+      </ol>
+      <div id="ext-state" class="hint"></div>
+    </section>
+    <section data-cpane="mcp" class="connect-pane" hidden>
+      <p class="hint">با این‌ها ابزارهای دیگه (Claude Code، Hermes، OpenCode، Cline) هم کتابخونه‌ت رو می‌بینن. مسیرها مخصوص همین کامپیوترن. لازم نیست ConvoHub روشن باشه.</p>
+      <div class="snippet"><h3>Claude Code <span class="hint">(یه بار توی ترمینال بزن)</span></h3><pre id="mcp-claude" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-claude">کپی</button></div>
+      <div class="snippet"><h3>Hermes <span class="hint">(یه بار توی ترمینال بزن)</span></h3><pre id="mcp-hermes" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-hermes">کپی</button></div>
+      <div class="snippet"><h3>OpenCode <span class="hint">(داخل بخش <code>"mcp"</code> فایل <code dir="ltr">%USERPROFILE%\.config\opencode\opencode.jsonc</code>)</span></h3><pre id="mcp-opencode" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-opencode">کپی</button></div>
+      <div class="snippet"><h3>Cline <span class="hint">(پنل Cline ← MCP Servers ← Configure، داخل <code>"mcpServers"</code>)</span></h3><pre id="mcp-cline" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-cline">کپی</button></div>
+    </section>
+    <div class="dialog-actions"><button type="button" id="connect-close">بستن</button></div>
+  </div>
+</dialog>
+
+<!-- backups -->
+<dialog id="backup-dialog">
+  <div class="dialog-body">
+    <h2>بکاپ کتابخونه</h2>
+    <p class="hint">
+      هر روز که برنامه روشن باشه یه بکاپ خودکار گرفته میشه (۱۴ تای آخر نگه داشته میشن). بکاپ‌هایی که خودت می‌گیری هیچ‌وقت خودکار پاک نمیشن.
+      بهتره پوشه‌ی بکاپ روی یه درایو دیگه یا یه پوشه‌ی همگام با Google Drive / OneDrive باشه.
+    </p>
+    <label class="field">پوشه‌ی بکاپ
+      <span class="hint">خالی بذاری، کنار دیتابیس (<code>data\backups</code>) ذخیره میشه.</span>
+      <div class="row">
+        <input id="backup-folder" type="text" dir="ltr" placeholder="D:\Backups\ConvoHub">
+        <button type="button" id="backup-folder-save">ذخیره</button>
+      </div>
+    </label>
+    <div><button type="button" id="backup-now" class="primary">همین الان بکاپ بگیر</button></div>
+    <div id="backup-msg" class="hint"></div>
+    <ul id="backup-list" class="backup-list"></ul>
+    <details class="hint">
+      <summary>برگردوندن یه بکاپ</summary>
+      برنامه رو ببند، فایل <code>data\convohub.db</code> رو یه جا کنار بذار، فایل بکاپ رو جاش کپی کن و اسمش رو <code>convohub.db</code> بذار، بعد برنامه رو دوباره باز کن.
+    </details>
+    <div class="dialog-actions"><button type="button" id="backup-close">بستن</button></div>
+  </div>
+</dialog>
+
+<!-- agent log -->
+<dialog id="log-dialog">
+  <div class="dialog-body">
+    <h2>لاگ کارهای ایجنت</h2>
+    <div id="log-entries" class="log-entries"></div>
+    <div class="dialog-actions"><button type="button" id="log-close">بستن</button></div>
+  </div>
+</dialog>
+
+<!-- in-page replacement for alert/confirm/prompt (native ones can be blocked in embedded browsers) -->
+<dialog id="ui-dialog">
+  <form method="dialog" class="dialog-body" id="ui-form">
+    <div id="ui-message" class="ui-message"></div>
+    <input id="ui-input" type="text" hidden>
+    <div class="dialog-actions">
+      <button type="submit" id="ui-ok" class="primary" value="ok">باشه</button>
+      <button type="button" id="ui-cancel">انصراف</button>
+    </div>
+  </form>
+</dialog>
+
+<datalist id="models-dl"></datalist>
+<script src="/static/app.js"></script>
+</body>
+</html>

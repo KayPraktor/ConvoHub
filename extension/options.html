@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>ConvoHub</title>
+  <style>
+    body { font: 14px Vazirmatn, Tahoma, sans-serif; margin: 16px; min-width: 360px; line-height: 1.8; }
+    label { display: block; margin: 10px 0; }
+    input[type=text] { width: 100%; box-sizing: border-box; padding: 4px 8px; direction: ltr; }
+    button { padding: 4px 14px; margin-inline-end: 6px; }
+    .hint { color: #6b7280; font-size: 12px; }
+    #msg { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h3>ConvoHub</h3>
+  <label>آدرس ConvoHub
+    <input id="server" type="text" placeholder="http://127.0.0.1:8765">
+  </label>
+  <label><input id="auto" type="checkbox"> پیام‌های جدید مکالمه‌هایی که قبلاً فرستادم خودکار اضافه بشن</label>
+  <div class="hint">
+    روی صفحه‌ی چت (Gemini، ChatGPT، Claude، Grok) دکمه‌ی «بفرست به ConvoHub» پایین سمت راست میاد.
+    افزونه فقط متن صفحه‌ای که باز کردی رو می‌خونه؛ نه کوکی، نه رمز، نه چیز دیگه.
+  </div>
+  <div>
+    <button id="save">ذخیره</button>
+    <button id="test">تست اتصال</button>
+  </div>
+  <div id="msg"></div>
+  <script src="options.js"></script>
+</body>
+</html>

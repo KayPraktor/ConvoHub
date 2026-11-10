@@ -1,0 +1,27 @@
+# secrets
+.env
+
+# private conversation data
+data/
+samples/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# misc
+node_modules/
+*.db
+*.sqlite
+.DS_Store
+
+# tool caches
+.pytest_cache/
+.ruff_cache/
+
+# build outputs
+build/
+dist/
+packaging/Output/
