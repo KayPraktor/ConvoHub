@@ -1,144 +1,183 @@
+<div align="center">
+
+<img src="convohub/static/icon.png" width="84" alt="ConvoHub logo">
+
 # ConvoHub
 
-**همه‌ی مکالمه‌هات با هوش‌های مصنوعی مختلف، یه جا — و با هر مدلی که بخوای ادامه‌شون بده.**
+**All your AI conversations in one local library — and continue any of them with any model.**
 
-اگه با Gemini فکر می‌کنی، با ChatGPT می‌نویسی و با Claude Code کد می‌زنی، احتمالاً مدام متن و نتیجه رو دستی از یکی به اون یکی می‌بری. ConvoHub این وسط رو حذف می‌کنه:
+[![Latest release](https://img.shields.io/github/v/release/KayPraktor/ConvoHub?style=for-the-badge&color=0f766e&label=release)](https://github.com/KayPraktor/ConvoHub/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/KayPraktor/ConvoHub/total?style=for-the-badge&color=14b8a6)](https://github.com/KayPraktor/ConvoHub/releases)
+[![License: MIT](https://img.shields.io/github/license/KayPraktor/ConvoHub?style=for-the-badge&color=f59e0b)](LICENSE)
+[![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#limitations)
 
-- مکالمه‌هات رو از **Gemini، ChatGPT، Claude و Grok** میاری توی یه کتابخونه روی کامپیوتر خودت.
-- با **هر مدلی** (از طریق [OpenRouter](https://openrouter.ai)) گفتگو می‌کنی و مکالمه‌های قبلی رو به‌عنوان مرجع بهش می‌دی: «با توجه به این دو تا چت، قدم بعدی چیه؟»
-- **Claude Code، OpenCode، Hermes و Cline** هم از طریق MCP همون کتابخونه رو می‌بینن.
+[![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org)
+[![MCP server](https://img.shields.io/badge/MCP-server-8A2BE2?style=flat-square)](https://modelcontextprotocol.io)
+[![OpenRouter](https://img.shields.io/badge/models-OpenRouter-6566F1?style=flat-square)](https://openrouter.ai)
+[![Local-first](https://img.shields.io/badge/local--first-no%20cloud%2C%20no%20telemetry-2ea44f?style=flat-square)](#security-and-privacy)
 
-> این یه ابزار شخصی و لوکاله: سرور، حساب کاربری و ارسال آمار نداره. **فقط روی ویندوز (۱۱) تست شده.**
+[**Download**](https://github.com/KayPraktor/ConvoHub/releases/latest) · [Features](#features) · [Install](#install) · [Browser extension](#browser-extension) · [MCP](#connect-claude-code-and-other-tools-mcp) · [Privacy](#security-and-privacy)
 
-## چی کار می‌کنه
+</div>
 
-- **آوردن مکالمه‌ها:**
-  - کپی و paste متن صفحه‌ی چت.
-  - فایل خروجی رسمی ChatGPT و Claude، یا فایل `.txt` و `.md`.
-  - لینک share عمومی (Gemini، ChatGPT، Grok).
-  - **افزونه‌ی مرورگر:** یه کلیک روی صفحه‌ی چت، و پیام‌های جدید بعداً خودکار اضافه میشن.
-- **کتابخونه:** جستجو (فارسی و انگلیسی)، تغییر نام، حذف، و خلاصه‌ی خودکار برای مکالمه‌های بلند (که هزینه رو کم می‌کنه).
-- **چت:**
-  - انتخاب مدل از لیست OpenRouter.
-  - تیک زدن مکالمه‌های مرجع.
-  - نمایش تخمین توکن و هزینه قبل از ارسال.
-- **چندمدلی:** یه سؤال رو هم‌زمان از چند مدل بپرس. یه مدل دیگه هم می‌تونه جمع‌بندی کنه که کجا موافق‌ان و کجا مخالف.
-- **حالت ایجنت:** مدل می‌تونه توی پوشه‌هایی که تو اجازه دادی فایل ببینه و بخونه. نوشتن، اجرای دستور و حذف **هر بار با تأیید تو** انجام میشن.
-- **کار با ابزارهای دیگه:** سرور MCP برای Claude Code و بقیه، به‌اضافه‌ی MCP و skill توی خود حالت ایجنت.
-- **نگهداری:** بکاپ خودکار روزانه، تم روشن و تیره، و رابط فارسی و راست‌به‌چپ.
+<br>
 
-## نصب (راه ساده: فایل نصبی)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/home-dark.png">
+  <img src="docs/images/home-light.png" alt="ConvoHub: the library sidebar with conversations from Gemini, ChatGPT, Claude and Grok, and the welcome screen">
+</picture>
 
-نیازی به نصب Python یا ابزار دیگه‌ای نیست.
+<br>
 
-1. از صفحه‌ی [Releases](../../releases/latest) فایل **`ConvoHub-Setup.exe`** رو دانلود کن (حدود ۵۵ مگ).
-2. اجراش کن. ویندوز احتمالاً می‌گه **«Windows protected your PC»**. این طبیعیه؛ پایین‌تر توضیح دادم چرا.
-   - روی **More info** بزن، بعد **Run anyway**.
-3. چند بار Next بزن. برنامه برای همین حساب کاربری نصب میشه و دسترسی ادمین نمی‌خواد. یه آیکون روی دسکتاپ و منوی استارت ساخته میشه.
-4. ConvoHub رو باز کن. توی مرورگرت باز میشه (`http://127.0.0.1:8765`) و اول **کلید OpenRouter** رو می‌پرسه (پایین‌تر توضیح دادم چطور بگیری‌اش).
+## Why
 
-**آپدیت:** نسخه‌ی جدید Setup.exe رو روی همون قبلی نصب کن. کتابخونه و تنظیماتت سر جاشون می‌مونن.
+You think things through with Gemini, write with ChatGPT and code with Claude Code — and you end up carrying context between them by hand. ConvoHub removes you as the messenger:
 
-**حذف:** از Settings ← Apps ← ConvoHub ← Uninstall. می‌پرسه داده‌هات (کتابخونه، بکاپ‌ها، کلید) هم پاک بشن یا نه؛ پیش‌فرضش «نه» است.
+- 📥 **Bring conversations in** from **Gemini, ChatGPT, Claude and Grok** into one library on your own computer.
+- 💬 **Chat with any model** (through [OpenRouter](https://openrouter.ai)) and hand it earlier conversations as references: *"given these two chats, what's the next step?"*
+- 🔌 **Share the library** with **Claude Code, OpenCode, Hermes and Cline** over MCP.
 
-### چرا ویندوز هشدار «ناشر ناشناس» می‌ده؟
+> [!NOTE]
+> ConvoHub is a personal, local tool: no server, no account, no telemetry. The interface is in **Persian (right-to-left)**. Tested on **Windows 11** only.
 
-ویندوز به برنامه‌هایی که با یه «گواهی امضای کد» امضا نشدن هشدار می‌ده. این گواهی هزینه‌ی سالانه داره و ConvoHub یه پروژه‌ی رایگان و متن‌بازه، برای همین امضا نشده. ولی این هشدار به این معنی نیست که برنامه خطرناکه:
+## Features
 
-- کل کد برنامه توی همین ریپو هست و هر کسی می‌تونه ببینه‌اش.
-- فایل نصبی هم از همین کد ساخته شده (`packaging/build.ps1`).
-- اگه خیالت راحت نیست، از راه دوم (اجرا از سورس) نصب کن.
+| | |
+|---|---|
+| 📥 **Import** | Paste a chat page · official ChatGPT and Claude exports · `.txt` / `.md` files · public share links (Gemini, ChatGPT, Grok) · a **browser extension** that sends the open chat in one click and keeps it in sync |
+| 📚 **Library** | Full-text search (Persian and English) · rename and delete · automatic summaries of long conversations to cut cost |
+| 💬 **Chat** | Pick any OpenRouter model · tick the conversations to use as references · see the estimated tokens and cost before sending |
+| 🧑‍⚖️ **Multi-model** | Ask several models at once, then let another model sum up where they agree and disagree |
+| 🛠️ **Agent mode** | The model can browse and read files in folders you allow. Writing, running commands and deleting always ask you first |
+| 🔌 **Integrations** | MCP server for Claude Code and others · your own MCP servers and skills inside agent mode |
+| 💾 **Housekeeping** | Daily automatic backups · light, dark and auto themes |
 
-بعضی آنتی‌ویروس‌ها هم برنامه‌هایی که با PyInstaller ساخته شدن رو گاهی اشتباهی مشکوک تشخیص می‌دن.
+## Install
 
-## نصب از سورس (برای کسی که با ترمینال راحته)
+### Option 1 — Installer (recommended)
 
-پیش‌نیاز فقط **[uv](https://docs.astral.sh/uv/)** است. uv خودش Python درست رو دانلود می‌کنه. برای نصب uv این دستور رو توی PowerShell بزن:
+No Python or other tools needed.
+
+1. Download **`ConvoHub-Setup.exe`** (~55 MB) from the [latest release](https://github.com/KayPraktor/ConvoHub/releases/latest).
+2. Run it. Windows will probably say **"Windows protected your PC"** — that's expected ([why?](#why-does-windows-warn-about-an-unknown-publisher)). Click **More info → Run anyway**.
+3. Click through the wizard. It installs for your user only, needs no admin rights, and adds a desktop and Start-menu icon.
+4. Open ConvoHub. It opens in your browser at `http://127.0.0.1:8765` and asks for your [OpenRouter key](#openrouter-key) first.
+
+- **Update:** install the new `ConvoHub-Setup.exe` over the old one. Your library and settings stay.
+- **Uninstall:** Settings → Apps → ConvoHub → Uninstall. It asks whether to delete your data too (library, backups, key); the default is *No*.
+
+#### Why does Windows warn about an unknown publisher?
+
+Windows warns about any program that isn't signed with a paid code-signing certificate. ConvoHub is a free, open-source project, so it isn't signed. The warning does not mean the program is harmful:
+
+- All of the code is in this repository.
+- The installer is built from this same code with [`packaging/build.ps1`](packaging/build.ps1).
+- If you'd rather not run it, use Option 2 and run from source.
+
+Some antivirus tools also flag programs built with PyInstaller by mistake.
+
+### Option 2 — From source
+
+The only prerequisite is **[uv](https://docs.astral.sh/uv/)**, which downloads the right Python by itself. Install it from PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-بعد:
+Then:
 
-1. ریپو رو دانلود کن: دکمه‌ی سبز **Code ← Download ZIP**، یا با git:
+1. Get the code — **Code → Download ZIP**, or:
 
    ```bash
    git clone https://github.com/KayPraktor/ConvoHub.git
    ```
 
-2. توی پوشه‌ی پروژه روی **`install.bat`** دوبار کلیک کن. پکیج‌ها نصب میشن و دو شورتکات روی دسکتاپ ساخته میشه: «ConvoHub» و «ConvoHub - خاموش».
-3. روی شورتکات **ConvoHub** دوبار کلیک کن. (`start.bat` هم کار می‌کنه، ولی یه پنجره‌ی ترمینال باز می‌مونه.)
+2. Double-click **`install.bat`** in the project folder. It installs the packages and puts two shortcuts on your desktop: **ConvoHub** and a **Stop** shortcut.
+3. Double-click the **ConvoHub** shortcut. (`start.bat` works too, but keeps a terminal window open.)
 
-اینجا داده‌ها توی پوشه‌ی `data` داخل خود پروژه نگه داشته میشن. کلید رو هم می‌تونی به‌جای رابط، توی فایل `.env` بذاری (`.env.example` رو ببین).
+When run from source, data lives in the project's `data` folder. You can also put the key in a `.env` file instead of the UI (see [`.env.example`](.env.example)).
 
-## کلید OpenRouter
+## OpenRouter key
 
-ConvoHub برای حرف زدن با مدل‌ها از [OpenRouter](https://openrouter.ai) استفاده می‌کنه. OpenRouter یه سرویسه که با یه حساب، صدها مدل (Gemini، Claude، GPT، DeepSeek و…) رو در اختیارت می‌ذاره.
+ConvoHub talks to models through [OpenRouter](https://openrouter.ai): one account, hundreds of models (Gemini, Claude, GPT, DeepSeek, …).
 
-1. توی openrouter.ai یه حساب بساز و از بخش Credits کمی اعتبار بخر. چند دلار برای مدت زیادی کافیه؛ ConvoHub قبل از هر پیام هزینه‌ی تقریبی رو نشون می‌ده.
-2. از بخش **Keys** یه کلید بساز. با `sk-or-` شروع میشه.
-3. توی ConvoHub بار اول خودش کلید رو می‌پرسه. بعداً از دکمه‌ی **🔑** پایین نوار کناری هم میشه عوضش کرد.
+1. Create an account on openrouter.ai and add a few dollars of credit. That lasts a long time — ConvoHub shows the estimated cost before every message.
+2. Create a key under **Keys**. It starts with `sk-or-`.
+3. ConvoHub asks for it on first start. You can change it later with the **🔑** button at the bottom of the sidebar.
 
-## افزونه‌ی مرورگر
+## Browser extension
 
-توی ConvoHub پایین نوار کناری **«🔌 اتصال»** رو بزن. مراحل نصب افزونه توی Chrome یا Edge قدم‌به‌قدم اونجاست، با دکمه‌ی باز کردن پوشه‌ی افزونه. خلاصه‌اش:
+In ConvoHub, click **🔌** at the bottom of the sidebar. The page walks you through installing the extension in Chrome or Edge, with a button that opens the extension folder. In short:
 
-1. برو به `chrome://extensions`.
-2. **Developer mode** رو روشن کن.
-3. **Load unpacked** رو بزن و پوشه‌ی `extension` رو انتخاب کن.
-4. توی ConvoHub «قبول» رو بزن.
+1. Go to `chrome://extensions` (or `edge://extensions`).
+2. Turn on **Developer mode**.
+3. Click **Load unpacked** and pick the `extension` folder.
+4. Open a chat page, then click **Accept** in ConvoHub to pair the extension.
 
-راهنمای کامل: [docs/EXTENSION.md](docs/EXTENSION.md)
+Full guide (Persian): [docs/EXTENSION.md](docs/EXTENSION.md)
 
-## وصل کردن Claude Code، OpenCode، Hermes و Cline
+## Connect Claude Code and other tools (MCP)
 
-توی ConvoHub: **«🔌 اتصال» ← «Claude Code و بقیه»**. دستور هر ابزار با مسیر درست روی همون کامپیوتر آماده‌ست؛ کپی کن و اجرا کن. برای مثال، بعد از وصل کردن، توی Claude Code می‌تونی بگی «از کتابخونه‌ی ConvoHub مکالمه‌ی مشاورم رو بخون و بگو قدم بعدی چیه».
-
-راهنمای کامل: [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
-
-## امنیت و حریم خصوصی
-
-- **همه‌چیز لوکاله:**
-  - کتابخونه، چت‌ها، تنظیمات و بکاپ‌ها فقط روی کامپیوتر خودت ذخیره میشن. نسخه‌ی نصبی توی `%LOCALAPPDATA%\ConvoHub` و نسخه‌ی سورس توی پوشه‌ی `data`.
-  - هیچ سرور مرکزی، حساب کاربری یا ارسال آماری وجود نداره.
-  - سرور ConvoHub فقط روی `127.0.0.1` گوش می‌ده و از شبکه یا سایت‌های دیگه قابل دسترسی نیست.
-- **مکالمه‌ها فقط برای مدلی فرستاده میشن که خودت انتخاب می‌کنی:**
-  - وقتی یه مکالمه رو به‌عنوان مرجع تیک بزنی، متنش (یا خلاصه‌اش) با هر پیام از طریق OpenRouter برای اون مدل فرستاده میشه.
-  - سیاست حریم خصوصی OpenRouter و سرویس‌دهنده‌ی همون مدل اینجا مهمه. اطلاعات خیلی حساس رو حواست باشه.
-- **کلید OpenRouter:**
-  - فقط روی همین کامپیوتر ذخیره میشه، رمزنگاری‌شده با حساب ویندوزت (DPAPI).
-  - توی بکاپ‌ها نمیره و هیچ‌جای رابط کامل نشون داده نمیشه.
-- **حالت ایجنت:**
-  - خوندن فقط توی پوشه‌هایی‌ه که خودت مجاز کردی. فایل‌هایی مثل `.env` و کلیدها هیچ‌وقت خونده نمیشن.
-  - نوشتن، ویرایش، حذف (به سطل بازیافت) و اجرای دستور فقط بعد از کلیک «اجازه بده» انجام میشن.
-  - **مهم:** دستوری که تأیید می‌کنی (PowerShell) به پوشه‌های مجاز محدود نیست. با همه‌ی دسترسی‌های حساب ویندوزت روی **کل سیستم** اجرا میشه. قبل از تأیید، خود دستور رو بخون.
-  - ابزارهای MCP هم هر بار اجازه می‌گیرن، مگه اینکه برای یه ابزار مشخص «همیشه اجازه بده» زده باشی.
-- **متن مکالمه‌ها داده‌ست، نه دستور:** اگه توی یه مکالمه یا فایل نوشته باشه «فلان کار رو بکن»، به مدل گفته میشه اجراش نکنه. تغییرها هم در هر حال بدون تأیید تو انجام نمیشن.
-- **افزونه:**
-  - فقط متن صفحه‌ی چتی که باز کردی رو می‌خونه. کوکی، رمز یا توکن سایت‌ها رو نمی‌خونه و ذخیره نمی‌کنه.
-  - ConvoHub فقط افزونه‌ای رو قبول می‌کنه که خودت تأییدش کردی.
-- **لینک share** رو هر کسی که داشته باشه می‌بینه. بعد از ایمپورت، اگه لازمش نداری، از خود سایت پاکش کن.
-
-## محدودیت‌ها
-
-- **سیستم‌عامل:** فقط روی ویندوز ۱۱ (۶۴ بیتی) تست شده.
-- **ایمپورت با لینک** به Chrome یا Microsoft Edge نیاز داره (Edge همراه ویندوزه). لینک share از Claude معمولاً جلوی مرورگر خودکار رو می‌گیره؛ برای Claude از paste یا افزونه استفاده کن.
-- **سایت‌های چت** گاهی ساختار صفحه‌شون رو عوض می‌کنن. اون موقع ممکنه افزونه یا ایمپورت لینک موقتاً کار نکنه تا آپدیت بشه.
-- **دسترسی شبکه:** بعضی سایت‌ها، و خود OpenRouter، ممکنه از بعضی شبکه‌ها بدون VPN در دسترس نباشن.
-
-## برای توسعه‌دهنده‌ها
+In ConvoHub: **🔌 → Claude Code and others**. The ready-to-copy command for each tool already has the right paths for your machine. For Claude Code it looks like this:
 
 ```bash
-uv sync                      # پکیج‌ها (همراه با ابزارهای تست)
-uv run python -m convohub    # اجرا
-uv run pytest                # تست‌ها
-powershell -ExecutionPolicy Bypass -File packaging\build.ps1   # ساختن ConvoHub-Setup.exe (نیاز به Inno Setup 6)
+claude mcp add convohub --scope user -- "%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe"
 ```
 
-- **ساختار و تصمیم‌های اصلی:** [docs/DESIGN.md](docs/DESIGN.md)
-- **استک:** Python + FastAPI + SQLite، و رابط HTML/JS ساده بدون مرحله‌ی build.
+Then ask Claude Code something like *"Read my advisor conversation from the ConvoHub library and tell me the next step."*
 
-## لایسنس
+| Tool | What it does |
+|---|---|
+| `list_conversations` | List conversations, optionally by source |
+| `search_conversations` | Search titles and text |
+| `read_conversation` | Read the full text page by page, or just the summary |
+| `add_conversation_text` | Add a conversation from text |
+| `add_conversation_from_link` | Import from a share link |
 
-[MIT](LICENSE). فونت Vazirmatn تحت لایسنس SIL OFL است.
+Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
+
+## Security and privacy
+
+- 🏠 **Everything stays local.**
+  - The library, chats, settings and backups are stored only on your computer: in `%LOCALAPPDATA%\ConvoHub` for the installed app, or the `data` folder when run from source.
+  - There is no central server, no account and no telemetry.
+  - ConvoHub listens on `127.0.0.1` only, so other machines and websites can't reach it.
+- 📤 **Conversations go only to the model you choose.** When you tick a conversation as a reference, its text (or summary) is sent with each message, through OpenRouter, to that model. OpenRouter's and the model provider's privacy policies apply, so think twice about very sensitive material.
+- 🔑 **Your OpenRouter key** is stored only on this computer, encrypted with your Windows account (DPAPI). It is never included in backups and never shown in full in the UI.
+- 🛠️ **Agent mode:**
+  - Reading is limited to folders you allowed. Files such as `.env` and keys are never read.
+  - Writing, editing, deleting (to the Recycle Bin) and running commands happen only after you click **Allow**.
+  - MCP tools ask every time too, unless you chose "always allow" for a specific tool.
+
+> [!WARNING]
+> A command you approve in agent mode (PowerShell) is **not** limited to the allowed folders. It runs with your Windows account's full permissions on the **whole system**. Read the command before you approve it.
+
+- 🧾 **Imported text is data, not instructions.** If a conversation or file says "do X", the model is told not to act on it, and nothing changes on your system without your approval anyway.
+- 🧩 **The extension** reads only the text of the chat page you have open. It never reads or stores cookies, passwords or tokens, and ConvoHub accepts only the extension you paired.
+- 🔗 **Share links** are visible to anyone who has them. Once imported, delete the link on the original site if you don't need it.
+
+## Limitations
+
+- **OS:** tested only on Windows 11 (64-bit).
+- **Language:** the interface is in Persian (right-to-left). Conversations can be in any language.
+- **Link import** needs Chrome or Microsoft Edge (Edge ships with Windows). Claude share links usually block automated browsers; for Claude, paste the text or use the extension.
+- **Chat sites change their pages** from time to time. When that happens, the extension or link import may break until it's updated.
+- **Network:** some chat sites, and OpenRouter itself, may be unreachable from some networks without a VPN.
+
+## For developers
+
+```bash
+uv sync                      # install packages (including test tools)
+uv run python -m convohub    # run
+uv run pytest                # tests
+powershell -ExecutionPolicy Bypass -File packaging\build.ps1   # build ConvoHub-Setup.exe (needs Inno Setup 6)
+```
+
+- **Architecture and key decisions (Persian):** [docs/DESIGN.md](docs/DESIGN.md)
+- **Stack:** Python, FastAPI and SQLite, with a plain HTML/JS interface and no build step.
+
+## License
+
+[MIT](LICENSE). The bundled Vazirmatn font is under the [SIL Open Font License](convohub/static/fonts/OFL.txt).
