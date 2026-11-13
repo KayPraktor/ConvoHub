@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ConvoHub",
-  "version": "0.2.2",
-  "description": "Send the chat you have open (Gemini, ChatGPT, Claude, Grok) to your local ConvoHub library, and keep it up to date.",
+  "version": "0.3.2",
+  "description": "Send the chat you have open (Gemini, ChatGPT, Claude, Grok) to your local ConvoHub library, keep it up to date, and bring ConvoHub chats back.",
   "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
   "background": { "service_worker": "background.js" },

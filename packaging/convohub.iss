@@ -1,12 +1,12 @@
 ; Inno Setup script for ConvoHub-Setup.exe
-; Build (after PyInstaller):  ISCC.exe /DAppVersion=0.1.0 packaging\convohub.iss
+; Build (after PyInstaller):  ISCC.exe /DAppVersion=0.2.0 packaging\convohub.iss
 ;
 ; - Per-user install (no admin rights): %LOCALAPPDATA%\Programs\ConvoHub
 ; - User data lives in %LOCALAPPDATA%\ConvoHub and is never touched by install/update.
 ;   Uninstall asks before deleting it.
 
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.2.0"
 #endif
 
 [Setup]

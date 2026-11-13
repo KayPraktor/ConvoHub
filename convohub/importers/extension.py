@@ -7,7 +7,7 @@ The same conversation is sent again whenever new messages appear, so we merge in
 import re
 from urllib.parse import urlparse
 
-from .. import library
+from .. import handoff, library
 from ..text import guess_title
 
 # host, path regex (must capture the whole conversation path), source
@@ -82,6 +82,9 @@ def sync(conn, url: str, title: str | None, messages: list[dict], full: bool) ->
     source, curl = found
     messages = [{"role": m["role"], "content": m["content"].strip()} for m in messages
                 if m.get("role") in ("user", "assistant") and (m.get("content") or "").strip()]
+    for m in messages:  # a handoff pasted from ConvoHub: don't store its content twice
+        if m["role"] == "user":
+            m["content"] = handoff.compact(m["content"])
     if not messages:
         raise SyncError("پیامی توی صفحه پیدا نشد.")
 

@@ -36,7 +36,9 @@ if not FROZEN:
     load_dotenv(ROOT_DIR / ".env")  # development: the key may live in .env as before
 
 HOST = "127.0.0.1"  # local only, never exposed to the network
-PORT = int(os.getenv("CONVOHUB_PORT", "8765"))
+# Outside the ranges Windows hands out (and may reserve) for dynamic ports: 1024-15000 when Hyper-V/WSL/Docker
+# lowered it, 49152-65535 by default. 8765 got reserved by Windows on one machine and the app silently failed.
+PORT = int(os.getenv("CONVOHUB_PORT", "28765"))
 
 
 def openrouter_key() -> str | None:

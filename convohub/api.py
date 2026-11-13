@@ -11,7 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import __version__, backup, config, db, extension_pairing, keystore, library, openrouter, panel, prompting
+from . import __version__, backup, config, db, extension_pairing, handoff, keystore, library, memory, openrouter, panel, prompting
 from .importers import files as file_import
 from .importers import links as link_import
 from .importers import extension as ext_import
@@ -251,13 +251,16 @@ class EstimateIn(BaseModel):
     draft: str = ""
     model: str | None = None
     models: list[str] = Field(default_factory=list)
+    memory: bool | None = None  # None: the global setting
 
 
 @router.post("/chats/{chat_id}/estimate")
 async def estimate(chat_id: int, body: EstimateIn):
     with db.session() as conn:
         _require_chat(conn, chat_id)
-        est = prompting.estimate(conn, chat_id, body.draft)
+        mem_text, mem_used, mem_total = _memory_for(conn, chat_id, body.memory, body.draft)
+        est = prompting.estimate(conn, chat_id, body.draft, mem_text)
+        est["memory_notes"], est["memory_total"] = mem_used, mem_total
     est["model"] = None
     if body.model:
         try:
@@ -285,6 +288,7 @@ class MessageIn(BaseModel):
     content: str = Field(min_length=1)
     model: str = Field(min_length=1)
     agent: bool = False
+    memory: bool | None = None  # None: the global setting
     models: list[str] = Field(default_factory=list, max_length=panel.MAX_MODELS)  # extra models: multi-model mode
     orchestrator: str | None = None
 
@@ -292,6 +296,14 @@ class MessageIn(BaseModel):
 PANEL_PROMPT = """Several AI models answer this chat in parallel; earlier turns may show all their answers,
 labelled by model. Give your own best answer to the user's latest message (you may build on or disagree with the
 others). You have no access to the user's files in this mode."""
+
+
+def _memory_for(conn, chat_id: int, wanted: bool | None, new_text: str | None) -> tuple[str, int, int]:
+    """The memory block for this chat's next message, if memory is on for it."""
+    on = memory.enabled(conn) if wanted is None else wanted
+    if not on:
+        return "", 0, 0
+    return memory.block(conn, memory.chat_query(conn, chat_id, new_text))
 
 
 def _sse(event: dict) -> str:
@@ -326,7 +338,12 @@ async def send_message(chat_id: int, body: MessageIn):
     with db.session() as conn:
         chat = _require_chat(conn, chat_id)
         agent_settings = agent_cfg.load(conn) if mode in ("agent", "read") else None
-        messages = prompting.build_messages(conn, chat_id, body.model, body.content, extra_system=extra)
+        mem_on = memory.enabled(conn) if body.memory is None else body.memory
+        mem_text, _, _ = _memory_for(conn, chat_id, mem_on, body.content)
+        if mem_on and mode in ("agent", "read"):
+            extra = extra + "\n\n" + memory.SUGGEST_PROMPT  # the model may suggest notes (the user confirms)
+        messages = prompting.build_messages(conn, chat_id, body.model, body.content, extra_system=extra,
+                                            memory_text=mem_text)
         library.add_message(conn, chat_id, "user", body.content)
         if chat["title"] == NEW_CHAT_TITLE:
             library.rename(conn, chat_id, guess_title(body.content, 50))
@@ -345,7 +362,7 @@ async def send_message(chat_id: int, body: MessageIn):
     async def agent():
         state = {}
         async for ev in agent_runner.run(chat_id, body.model, messages, agent_settings, state,
-                                         read_only=(mode == "read")):
+                                         read_only=(mode == "read"), suggest_memory=mem_on):
             yield ev, state
 
     if mode == "panel":
@@ -364,7 +381,7 @@ async def send_message(chat_id: int, body: MessageIn):
             # Runs on success, error, and when the user presses stop (client disconnects).
             segments, usage = state.get("segments") or [], state.get("usage") or {}
             text = "\n\n".join(s["text"] for s in segments if s["type"] == "text").strip()
-            has_tools = any(s["type"] == "tool" for s in segments)
+            has_tools = any(s["type"] in ("tool", "memory") for s in segments)
             if text or has_tools:
                 if error:
                     text += "\n\n[جواب ناقص ماند]"
@@ -457,6 +474,162 @@ def agent_log(chat_id: int):
         return [{**dict(r), "args": json.loads(r["args"])} for r in rows]
 
 
+# ---------- handoff: take a chat back to the original AI chat, or to another one ----------
+
+class HandoffIn(BaseModel):
+    target: str = Field(pattern="^(original|new)$")
+    since_last: bool = True
+    format: str = Field("full", pattern="^(full|brief)$")
+    model: str | None = None
+
+
+class HandoffDoneIn(BaseModel):
+    target: str = Field(pattern="^(original|new)$")
+    format: str = Field("full", pattern="^(full|brief)$")
+    upto: int
+    via: str = Field(pattern="^(copy|file|extension)$")
+    text: str | None = Field(None, max_length=2_000_000)  # only for via=extension
+
+
+@router.get("/chats/{chat_id}/handoff")
+def handoff_info(chat_id: int):
+    with db.session() as conn:
+        _require_chat(conn, chat_id)
+        return {**handoff.info(conn, chat_id), "extension_waiting": bool(handoff.peek_pending())}
+
+
+@router.post("/chats/{chat_id}/handoff/build")
+async def handoff_build(chat_id: int, body: HandoffIn):
+    with db.session() as conn:
+        _require_chat(conn, chat_id)
+        if body.format == "full":
+            return handoff.build(conn, chat_id, body.target, body.since_last)
+        m = handoff.material(conn, chat_id, body.target, body.since_last)
+    if not m["body"]:
+        return {"text": "", "tokens": 0, "count": 0, "upto": m["upto"]}
+    if not body.model:
+        raise HTTPException(400, "برای خلاصه یه مدل انتخاب کن.")
+    try:
+        brief, usage = await openrouter.complete(body.model, handoff.brief_messages(body.target, m["body"]))
+    except openrouter.OpenRouterError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    if not brief.strip():
+        raise HTTPException(502, "مدل خلاصه‌ای برنگردوند.")
+    text = handoff.wrap(m["title"], body.target, brief, brief=True)
+    return {"text": text, "tokens": estimate_tokens(text), "count": m["count"], "upto": m["upto"], "usage": usage}
+
+
+@router.post("/chats/{chat_id}/handoff/done")
+def handoff_done(chat_id: int, body: HandoffDoneIn):
+    with db.session() as conn:
+        chat = _require_chat(conn, chat_id)
+        if body.via == "extension":
+            if not (body.text or "").strip():
+                raise HTTPException(400, "متنی برای فرستادن نیست.")
+            handoff.set_pending(body.text, chat["title"])
+        handoff.record(conn, chat_id, body.target, body.format, body.upto, body.via)
+        return handoff.info(conn, chat_id)
+
+
+@router.delete("/handoff/pending")
+def handoff_cancel_pending():
+    handoff.clear_pending()
+    return {"ok": True}
+
+
+# ---------- memory: notes about the user, sent to the models ----------
+
+def _memory_state(conn) -> dict:
+    items = memory.list_notes(conn)
+    active = [n for n in items if n["status"] == "active"]
+    text, used, total = memory.block(conn)
+    return {"enabled": memory.enabled(conn), "items": items, "active": len(active),
+            "suggested": len(items) - len(active), "tokens": estimate_tokens(text) if text else 0,
+            "token_cap": memory.TOKEN_CAP, "all_fit": used == total}
+
+
+class MemoryAddIn(BaseModel):
+    texts: list[str] = Field(min_length=1, max_length=50)
+    source_conversation_id: int | None = None
+
+
+class MemoryEditIn(BaseModel):
+    text: str | None = None
+    status: str | None = Field(None, pattern="^active$")  # approve a suggestion
+
+
+class MemorySettingsIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/memory")
+def memory_list():
+    with db.session() as conn:
+        return _memory_state(conn)
+
+
+@router.post("/memory")
+def memory_add(body: MemoryAddIn):
+    with db.session() as conn:
+        added = []
+        for text in body.texts:
+            try:
+                added.append(memory.add(conn, text, "active", body.source_conversation_id))
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+        return {**_memory_state(conn), "added": added}
+
+
+@router.patch("/memory/{note_id}")
+def memory_edit(note_id: int, body: MemoryEditIn):
+    with db.session() as conn:
+        try:
+            note = memory.update(conn, note_id, body.text, body.status)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not note:
+            _not_found()
+        return {**_memory_state(conn), "note": note}
+
+
+@router.delete("/memory/{note_id}")
+def memory_delete(note_id: int):
+    with db.session() as conn:
+        if not memory.delete(conn, note_id):
+            _not_found()
+        return _memory_state(conn)
+
+
+@router.put("/memory/settings")
+def memory_settings(body: MemorySettingsIn):
+    with db.session() as conn:
+        memory.set_enabled(conn, body.enabled)
+        return _memory_state(conn)
+
+
+@router.post("/conversations/{conv_id}/memory/extract")
+async def memory_extract(conv_id: int, body: SummarizeIn):
+    """Suggest notes from a conversation. Nothing is saved: the user picks which ones to keep."""
+    with db.session() as conn:
+        if not conn.execute("SELECT 1 FROM conversations WHERE id = ?", (conv_id,)).fetchone():
+            _not_found()
+        conv = conn.execute("SELECT summary FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        transcript = library.conversation_text(conn, conv_id)
+    if estimate_tokens(transcript) > 120_000 and conv["summary"]:
+        transcript = conv["summary"]  # very long: the summary is enough for lasting facts
+    try:
+        reply, usage = await openrouter.complete(body.model, memory.extract_messages(transcript))
+    except openrouter.OpenRouterError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    notes = memory.parse_extracted(reply)
+    if not notes and reply.strip():
+        raise HTTPException(502, "جواب مدل قابل خوندن نبود. یه مدل دیگه امتحان کن.")
+    with db.session() as conn:
+        existing = [n["text"] for n in memory.list_notes(conn, "active")]
+    return {"suggestions": [{"text": t, "known": any(memory._same(t, e) for e in existing)} for t in notes],
+            "usage": usage}
+
+
 # ---------- browser extension ----------
 
 def _require_extension(x_convohub_client: str | None) -> None:
@@ -493,6 +666,23 @@ def extension_sync(body: ExtSyncIn, x_convohub_client: str | None = Header(None)
             return ext_import.sync(conn, body.url, body.title, [m.model_dump() for m in body.messages], body.full)
     except ext_import.SyncError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+# Both POST: browsers always send Origin on POST, so the pairing check in main.py applies.
+@router.post("/extension/handoff/peek")
+def extension_handoff_peek(x_convohub_client: str | None = Header(None)):
+    _require_extension(x_convohub_client)
+    p = handoff.peek_pending()
+    return {"pending": bool(p), "title": p["title"] if p else None, "chars": len(p["text"]) if p else 0}
+
+
+@router.post("/extension/handoff/take")
+def extension_handoff_take(x_convohub_client: str | None = Header(None)):
+    _require_extension(x_convohub_client)
+    p = handoff.take_pending()
+    if not p:
+        raise HTTPException(404, "متنی منتظر نیست. توی ConvoHub دوباره «بفرست به افزونه» رو بزن.")
+    return {"text": p["text"], "title": p["title"]}
 
 
 # ---------- backups ----------

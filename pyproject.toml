@@ -1,6 +1,6 @@
 [project]
 name = "convohub"
-version = "0.1.0"
+version = "0.2.0"
 description = "Personal, local-first library of AI chat conversations, with chat via OpenRouter."
 requires-python = ">=3.13"
 dependencies = [

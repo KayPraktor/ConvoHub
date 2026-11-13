@@ -77,10 +77,11 @@ def _supports_cache_control(model: str) -> bool:
 
 
 def build_messages(conn, chat_id: int, model: str, new_user_text: str | None = None,
-                   extra_system: str | None = None) -> list[dict]:
-    """extra_system: added after the base prompt and before the transcripts (agent mode instructions)."""
+                   extra_system: str | None = None, memory_text: str = "") -> list[dict]:
+    """extra_system: added after the base prompt and before the transcripts (agent mode instructions).
+    memory_text: the user's memory block (memory.block), if memory is on for this chat."""
     context, _ = build_context_block(conn, chat_id)
-    base = SYSTEM_BASE + "\n\n" + (extra_system or CHAT_MODE_NOTE)
+    base = SYSTEM_BASE + "\n\n" + (extra_system or CHAT_MODE_NOTE) + ("\n\n" + memory_text if memory_text else "")
     if context and _supports_cache_control(model):
         system = {"role": "system", "content": [
             {"type": "text", "text": base},
@@ -133,23 +134,33 @@ def synthesis_messages(base_messages: list[dict], answers: list[tuple[str, str]]
 
 def _with_trace(m: dict) -> str:
     """Earlier agent turns: tell the model which tools it used, without replaying full tool output."""
-    steps = [seg for seg in (m.get("tool_trace") or []) if seg.get("type") == "tool"]
-    if not steps:
+    trace = m.get("tool_trace") or []
+    steps = [seg for seg in trace if seg.get("type") == "tool"]
+    notes = [seg for seg in trace if seg.get("type") == "memory"]
+    if not steps and not notes:
         return m["content"]
-    lines = ["[Tools used in this turn:"]
-    for seg in steps:
-        args = ", ".join(f"{k}={str(v)[:80]!r}" for k, v in (seg.get("args") or {}).items())
-        lines.append(f"- {seg['name']}({args}) -> {seg['status']}")
-    return "\n".join(lines) + "]\n\n" + (m["content"] or "")
+    head = ""
+    if steps:
+        lines = ["[Tools used in this turn:"]
+        for seg in steps:
+            args = ", ".join(f"{k}={str(v)[:80]!r}" for k, v in (seg.get("args") or {}).items())
+            lines.append(f"- {seg['name']}({args}) -> {seg['status']}")
+        head += "\n".join(lines) + "]\n\n"
+    if notes:
+        # So the model doesn't suggest the same note again in a later turn.
+        head += "[Suggested for the user's memory (the user decides): " + "; ".join(f"«{s['text']}»" for s in notes) + "]\n\n"
+    return head + (m["content"] or "")
 
 
-def estimate(conn, chat_id: int, draft: str = "") -> dict:
+def estimate(conn, chat_id: int, draft: str = "", memory_text: str = "") -> dict:
     """Token estimate of what the next message would send."""
     context, items = build_context_block(conn, chat_id)
     history = sum(estimate_tokens(m["content"]) for m in library.get_messages(conn, chat_id))
-    system = estimate_tokens(SYSTEM_BASE) + estimate_tokens(context)
+    memory_tokens = estimate_tokens(memory_text) if memory_text else 0
+    system = estimate_tokens(SYSTEM_BASE) + estimate_tokens(context) + memory_tokens
     return {
         "context_items": items,
+        "memory_tokens": memory_tokens,
         "system_tokens": system,
         "history_tokens": history,
         "draft_tokens": estimate_tokens(draft),

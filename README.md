@@ -49,6 +49,8 @@ You think things through with Gemini, write with ChatGPT and code with Claude Co
 | 📥 **Import** | Paste a chat page · official ChatGPT and Claude exports · `.txt` / `.md` files · public share links (Gemini, ChatGPT, Grok) · a **browser extension** that sends the open chat in one click and keeps it in sync |
 | 📚 **Library** | Full-text search (Persian and English) · rename and delete · automatic summaries of long conversations to cut cost |
 | 💬 **Chat** | Pick any OpenRouter model · tick the conversations to use as references · see the estimated tokens and cost before sending |
+| 📤 **Handoff** | Take a chat you continued here back to the original Gemini/ChatGPT/Claude/Grok chat (only the new part), or on to another chatbot (with its background). Full text or a model-written brief · copy, `.md` file, or the extension puts it into the message box and you press Send |
+| 🧠 **Memory** | Short notes about you and your work (role, projects, how you like answers) that every model sees, so you don't repeat yourself. Add them yourself, pull candidates from an imported conversation, or approve what a model suggests mid-chat; nothing is saved without you. On/off globally and per chat |
 | 🧑‍⚖️ **Multi-model** | Ask several models at once, then let another model sum up where they agree and disagree |
 | 🛠️ **Agent mode** | The model can browse and read files in folders you allow. Writing, running commands and deleting always ask you first |
 | 🔌 **Integrations** | MCP server for Claude Code and others · your own MCP servers and skills inside agent mode |
@@ -63,7 +65,7 @@ No Python or other tools needed.
 1. Download **`ConvoHub-Setup.exe`** (~55 MB) from the [latest release](https://github.com/KayPraktor/ConvoHub/releases/latest).
 2. Run it. Windows will probably say **"Windows protected your PC"** — that's expected ([why?](#why-does-windows-warn-about-an-unknown-publisher)). Click **More info → Run anyway**.
 3. Click through the wizard. It installs for your user only, needs no admin rights, and adds a desktop and Start-menu icon.
-4. Open ConvoHub. It opens in your browser at `http://127.0.0.1:8765` and asks for your [OpenRouter key](#openrouter-key) first.
+4. Open ConvoHub. It opens in your browser at `http://127.0.0.1:28765` and asks for your [OpenRouter key](#openrouter-key) first.
 
 - **Update:** install the new `ConvoHub-Setup.exe` over the old one. Your library and settings stay.
 - **Uninstall:** Settings → Apps → ConvoHub → Uninstall. It asks whether to delete your data too (library, backups, key); the default is *No*.
@@ -105,11 +107,11 @@ ConvoHub talks to models through [OpenRouter](https://openrouter.ai): one accoun
 
 1. Create an account on openrouter.ai and add a few dollars of credit. That lasts a long time — ConvoHub shows the estimated cost before every message.
 2. Create a key under **Keys**. It starts with `sk-or-`.
-3. ConvoHub asks for it on first start. You can change it later with the **🔑** button at the bottom of the sidebar.
+3. ConvoHub asks for it on first start. You can change it later with the key button at the bottom of the sidebar.
 
 ## Browser extension
 
-In ConvoHub, click **🔌** at the bottom of the sidebar. The page walks you through installing the extension in Chrome or Edge, with a button that opens the extension folder. In short:
+In ConvoHub, click **اتصال** (Connect) at the bottom of the sidebar. The page walks you through installing the extension in Chrome or Edge, with a button that opens the extension folder. In short:
 
 1. Go to `chrome://extensions` (or `edge://extensions`).
 2. Turn on **Developer mode**.
@@ -120,7 +122,7 @@ Full guide (Persian): [docs/EXTENSION.md](docs/EXTENSION.md)
 
 ## Connect Claude Code and other tools (MCP)
 
-In ConvoHub: **🔌 → Claude Code and others**. The ready-to-copy command for each tool already has the right paths for your machine. For Claude Code it looks like this:
+In ConvoHub: **اتصال** (Connect) → **Claude Code و بقیه** (Claude Code and others). The ready-to-copy command for each tool already has the right paths for your machine. For Claude Code it looks like this:
 
 ```bash
 claude mcp add convohub --scope user -- "%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe"
@@ -134,6 +136,7 @@ Then ask Claude Code something like *"Read my advisor conversation from the Conv
 | `search_conversations` | Search titles and text |
 | `read_conversation` | Read the full text page by page, or just the summary |
 | `add_conversation_text` | Add a conversation from text |
+| `read_memory` | Your memory notes (read-only) |
 | `add_conversation_from_link` | Import from a share link |
 
 Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
@@ -144,7 +147,7 @@ Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
   - The library, chats, settings and backups are stored only on your computer: in `%LOCALAPPDATA%\ConvoHub` for the installed app, or the `data` folder when run from source.
   - There is no central server, no account and no telemetry.
   - ConvoHub listens on `127.0.0.1` only, so other machines and websites can't reach it.
-- 📤 **Conversations go only to the model you choose.** When you tick a conversation as a reference, its text (or summary) is sent with each message, through OpenRouter, to that model. OpenRouter's and the model provider's privacy policies apply, so think twice about very sensitive material.
+- 📤 **Conversations go only to the model you choose.** When you tick a conversation as a reference, its text (or summary) is sent with each message, through OpenRouter, to that model. So are your memory notes, while memory is on for that chat. OpenRouter's and the model provider's privacy policies apply, so think twice about very sensitive material.
 - 🔑 **Your OpenRouter key** is stored only on this computer, encrypted with your Windows account (DPAPI). It is never included in backups and never shown in full in the UI.
 - 🛠️ **Agent mode:**
   - Reading is limited to folders you allowed. Files such as `.env` and keys are never read.

@@ -1,10 +1,18 @@
 // Talks to the local ConvoHub server. Content scripts can't call 127.0.0.1 themselves (the page's CORS rules
 // apply to them), so they ask this service worker. Nothing here reads cookies or calls the AI sites' servers.
 
-const DEFAULTS = { server: "http://127.0.0.1:8765", autoSync: true };
+const DEFAULTS = { server: "http://127.0.0.1:28765", autoSync: true };
+
+// ConvoHub's default port moved from 8765 (Windows sometimes reserves it) to 28765.
+const OLD_DEFAULT = /^http:\/\/(127\.0\.0\.1|localhost):8765\/?$/;
 
 async function settings() {
-  return { ...DEFAULTS, ...(await chrome.storage.sync.get(DEFAULTS)) };
+  const s = { ...DEFAULTS, ...(await chrome.storage.sync.get(DEFAULTS)) };
+  if (OLD_DEFAULT.test(s.server)) {
+    s.server = DEFAULTS.server;
+    await chrome.storage.sync.set({ server: s.server });
+  }
+  return s;
 }
 
 async function call(path, init = {}) {
@@ -36,6 +44,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.type === "sync") {
       return sendResponse(await call("/api/extension/sync", { method: "POST", body: JSON.stringify(msg.payload) }));
     }
+    if (msg.type === "handoff-peek") return sendResponse(await call("/api/extension/handoff/peek", { method: "POST" }));
+    if (msg.type === "handoff-take") return sendResponse(await call("/api/extension/handoff/take", { method: "POST" }));
     if (msg.type === "diagnose") {
       return sendResponse(await call("/api/extension/diagnose", { method: "POST", body: JSON.stringify(msg.payload) }));
     }

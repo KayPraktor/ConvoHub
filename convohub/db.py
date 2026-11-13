@@ -67,6 +67,28 @@ CREATE TABLE IF NOT EXISTS agent_log (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_agent_log_chat ON agent_log(chat_id, id);
+
+-- Each time a chat was handed off to another AI chat (so the next one can send only what's new).
+CREATE TABLE IF NOT EXISTS handoffs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id    INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    target     TEXT NOT NULL,          -- original | new
+    format     TEXT NOT NULL,          -- full | brief
+    upto       INTEGER NOT NULL,       -- last message position included
+    via        TEXT NOT NULL,          -- copy | file | extension
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_handoffs_chat ON handoffs(chat_id, id);
+
+-- Memory: notes about the user, sent to the models (active), or waiting for the user's OK (suggested).
+CREATE TABLE IF NOT EXISTS memories (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    text                   TEXT NOT NULL,
+    status                 TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suggested')),
+    source_conversation_id INTEGER REFERENCES conversations(id) ON DELETE SET NULL,
+    created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # Columns added after phase 0; older databases get them via ALTER TABLE.

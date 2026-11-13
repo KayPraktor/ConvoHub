@@ -144,5 +144,65 @@
     }
   }, 1000);
 
+  // ---------- handoff: a text ConvoHub prepared for this chat ----------
+  // ConvoHub keeps it waiting; this button puts it into the message box. The user reads it and presses Send.
+  const hoHost = document.createElement("div");
+  hoHost.style.cssText = "position:fixed;right:18px;bottom:128px;z-index:2147483646;display:none;";
+  const hoRoot = hoHost.attachShadow({ mode: "open" });
+  const hoStyle = document.createElement("style");
+  hoStyle.textContent = style.textContent + " button { border-color: #0f766e; } button.done { border-color: #16a34a; }";
+  const hoBtn = document.createElement("button");
+  hoBtn.type = "button";
+  hoRoot.append(hoStyle, hoBtn);
+  document.documentElement.appendChild(hoHost);
+  let hoText = null;      // taken from ConvoHub but not placed yet (e.g. no message box found)
+  let hoShownUntil = 0;   // keep the result message on screen for a moment
+
+  const hoShow = (text, cls = "", title = "") => {
+    hoBtn.textContent = text;
+    hoBtn.className = cls;
+    hoBtn.title = title;
+    hoHost.style.display = "";
+  };
+
+  async function hoCheck() {
+    if (document.visibilityState !== "visible" || Date.now() < hoShownUntil || hoText) return;
+    const res = await ask({ type: "handoff-peek" });
+    if (res.ok && res.data.pending) {
+      hoShow(`گذاشتن متن ConvoHub توی جعبه‌ی پیام («${res.data.title}»)`, "", "متن رو توی جعبه‌ی پیام همین چت می‌ذاره. بعدش خودت نگاهش کن و Send رو بزن.");
+    } else {
+      hoHost.style.display = "none";
+    }
+  }
+
+  async function hoPlace() {
+    if (!hoText) {
+      const res = await ask({ type: "handoff-take" });
+      if (!res.ok) { hoShow(res.error || "متنی منتظر نیست", "error"); hoShownUntil = Date.now() + 6000; return; }
+      hoText = res.data.text;
+    }
+    const r = await X.insertIntoComposer(hoText);
+    if (r.ok) {
+      hoText = null;
+      hoShow("متن گذاشته شد؛ یه نگاه بنداز و Send رو بزن", "done");
+    } else {
+      // No message box found, or the text didn't show up in it: put it on the clipboard so it's not lost.
+      try {
+        await navigator.clipboard.writeText(hoText);
+        hoText = null;
+        hoShow("نتونستم متن رو توی جعبه‌ی پیام بذارم؛ کپی شد، روی جعبه کلیک کن و Ctrl+V بزن", "error");
+      } catch {
+        hoShow("نتونستم متن رو توی جعبه‌ی پیام بذارم؛ روی جعبه‌ی پیام کلیک کن و دوباره این دکمه رو بزن", "error");
+        return;
+      }
+    }
+    hoShownUntil = Date.now() + 8000;
+  }
+
+  hoBtn.addEventListener("click", hoPlace);
+  setInterval(hoCheck, 3000);
+  document.addEventListener("visibilitychange", hoCheck);
+  hoCheck();
+
   refreshStatus();
 })();

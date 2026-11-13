@@ -36,6 +36,16 @@ async function api(path, opts = {}) {
 const fa = (n) => Number(n || 0).toLocaleString("fa-IR");
 const SOURCE_NAMES = { gemini: "Gemini", claude: "Claude", grok: "Grok", chatgpt: "ChatGPT", native: "اینجا", other: "دیگه" };
 const METHOD_NAMES = { paste: "paste", link: "لینک", file: "فایل", extension: "افزونه", native: "" };
+// Line icons from the sprite at the top of index.html (they take the text colour).
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "ic");
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#i-${name}`);
+  svg.append(use);
+  return svg;
+}
 const badge = (source) => el("span", { class: `badge ${source}` }, SOURCE_NAMES[source] || source);
 
 function fmtDate(s) {
@@ -153,6 +163,7 @@ const state = {
   models: [],
   current: null, // {type: 'conv'|'chat', id}
   streaming: null, // AbortController
+  memory: { enabled: true, items: [] },
 };
 
 // ---------- sidebar ----------
@@ -173,7 +184,7 @@ function renderList(items, isSearch) {
     const del = el("button", {
       class: "item-del", type: "button", title: "حذف",
       onclick: (e) => { e.stopPropagation(); deleteConv(c).catch(showFatal); },
-    }, "🗑");
+    }, icon("trash"));
     const li = el("li", { onclick: () => (c.source === "native" ? openChat(c.id) : openConversation(c.id)) },
       el("span", { class: "item-title", title: c.title }, c.title),
       el("span", { class: "item-meta" },
@@ -208,7 +219,7 @@ function showWelcome() {
   const step = (n, title, text, done) => el("li", {},
     el("span", { class: "n" }, done ? "✓" : fa(n)), el("div", {}, el("b", {}, title), el("span", {}, text)));
   $("#view").replaceChildren(el("div", { class: "scroll" }, el("div", { class: "welcome" },
-    el("h2", {}, "سلام! 👋"),
+    el("h2", {}, "سلام!"),
     el("p", {}, "همه‌ی مکالمه‌هات با هوش‌های مختلف، یه جا و با هر مدلی که بخوای."),
     el("ol", { class: "steps" },
       step(1, "کلید OpenRouter رو وارد کن", "ConvoHub از OpenRouter برای حرف زدن با مدل‌ها استفاده می‌کنه. کلید فقط روی همین کامپیوتر می‌مونه.", hasKey),
@@ -216,10 +227,10 @@ function showWelcome() {
       step(3, "یه گفتگوی جدید بساز", "مکالمه‌هایی که مدل باید ببینه رو به‌عنوان مرجع تیک بزن.", hasChat),
       step(4, "بپرس", "یه مدل انتخاب کن و سؤالت رو بنویس. برای کار روی فایل‌ها حالت ایجنت رو روشن کن.", false)),
     el("div", { class: "cta" },
-      hasKey ? null : el("button", { class: "primary", onclick: openKeyDialog }, "🔑 وارد کردن کلید"),
+      hasKey ? null : el("button", { class: "primary", onclick: openKeyDialog }, "وارد کردن کلید"),
       el("button", { class: hasKey && !hasLibrary ? "primary" : "", onclick: () => $("#btn-import").click() }, "+ ایمپورت مکالمه"),
       el("button", { class: hasKey && hasLibrary ? "primary" : "", onclick: () => newChat().catch(showFatal) }, "+ گفتگوی جدید"),
-      el("button", { onclick: openConnect }, "🔌 افزونه و اتصال")))));
+      el("button", { onclick: openConnect }, "افزونه و اتصال")))));
 }
 
 let searchTimer;
@@ -250,6 +261,8 @@ async function openConversation(id) {
     el("button", { onclick: () => renameConv(conv) }, "تغییر نام"),
     conv.import_method === "link" ? el("button", { onclick: (e) => refreshLink(conv, e.target) }, "دوباره بخون") : null,
     el("button", { onclick: (e) => summarize(conv, e.target) }, conv.summary ? "خلاصه‌ی دوباره" : "ساختن خلاصه"),
+    el("button", { onclick: (e) => extractMemory(conv, e.currentTarget), title: "یه مدل نکته‌های ماندگار درباره‌ی تو رو از این مکالمه درمیاره؛ خودت انتخاب می‌کنی کدوم‌ها توی حافظه بمونن" },
+      icon("memory"), "نکته‌ها برای حافظه"),
     el("button", { class: "danger", onclick: () => deleteConv(conv) }, "حذف"));
 
   const meta = el("div", { class: "meta" },
@@ -357,7 +370,7 @@ async function openChat(id) {
   stopStreaming();
   state.current = { type: "chat", id };
   refreshList().catch(() => {});
-  const [data] = await Promise.all([api(`/chats/${id}`), loadModels()]);
+  const [data] = await Promise.all([api(`/chats/${id}`), loadModels(), refreshMemory()]);
   const { chat, messages, context } = data;
   const view = $("#view");
   view.innerHTML = "";
@@ -400,13 +413,26 @@ async function openChat(id) {
   modelInput.addEventListener("change", refreshAgentWarn);
   state.refreshAgentWarn = refreshAgentWarn; // only the open chat listens (see the listener below)
 
+  // Memory on/off per chat (remembered in this browser); a chat never toggled follows the global setting.
+  const memKey = `memory:${id}`;
+  const memoryToggle = el("input", {
+    type: "checkbox", id: `mem-${id}`, checked: (store.get(memKey) ?? (state.memory.enabled ? "1" : "0")) === "1",
+  });
+  memoryToggle.addEventListener("change", () => {
+    store.set(memKey, memoryToggle.checked ? "1" : "0");
+    updateEstimate();
+  });
+
   const header = el("div", { class: "view-header" },
     titleEl,
     el("div", { class: "model-picker" }, modelInput),
     el("label", { class: "agent-toggle", for: `agent-${id}`, title: "دیدن و خوندن پوشه‌های مجاز همیشه فعاله. با این کلید، مدل (هر بار با اجازه‌ی تو) فایل می‌نویسه، دستور اجرا می‌کنه یا حذف می‌کنه و به سرورهای MCP وصل میشه." },
       agentToggle, "حالت ایجنت"),
+    el("label", { class: "memory-toggle", for: `mem-${id}`, title: "یادداشت‌های حافظه‌ات با پیام‌های این گفتگو فرستاده بشن" },
+      memoryToggle, "حافظه"),
     agentWarn,
     el("div", { class: "actions" },
+      el("button", { onclick: () => openHandoff(id, () => modelInput.value.trim()), title: "این گفتگو رو ببر به چت اصلی (مثلاً Gemini) یا یه چت‌بات دیگه" }, icon("share"), "ادامه در جای دیگه"),
       el("button", { onclick: () => showAgentLog(id) }, "لاگ ایجنت"),
       el("button", { class: "danger", onclick: () => deleteConv(chat) }, "حذف")));
   header.classList.toggle("agent-on", agentToggle.checked);
@@ -486,9 +512,9 @@ async function openChat(id) {
       el("h3", {}, "از کجا شروع کنیم؟"),
       el("div", {}, "این گفتگو هنوز خالیه."),
       el("div", { class: "tips" },
-        el("div", { class: "tip" }, "📎 از «+ انتخاب مکالمه‌ها» بالا، مکالمه‌هایی که مدل باید ببینه رو انتخاب کن."),
-        el("div", { class: "tip" }, "🤖 بالا یه مدل بنویس یا از لیست انتخاب کن (مثلاً google/gemini-…)."),
-        el("div", { class: "tip" }, "🛠 برای ساختن یا تغییر فایل، «حالت ایجنت» رو روشن کن. دیدن پوشه‌های مجاز همیشه فعاله."))));
+        el("div", { class: "tip" }, "از «+ انتخاب مکالمه‌ها» بالا، مکالمه‌هایی که مدل باید ببینه رو انتخاب کن."),
+        el("div", { class: "tip" }, "بالا یه مدل بنویس یا از لیست انتخاب کن (مثلاً google/gemini-…)."),
+        el("div", { class: "tip" }, "برای ساختن یا تغییر فایل، «حالت ایجنت» رو روشن کن. دیدن پوشه‌های مجاز همیشه فعاله."))));
   }
 
   const input = el("textarea", { rows: 3, placeholder: "پیامت رو بنویس… (Ctrl+Enter برای ارسال)" });
@@ -504,11 +530,12 @@ async function openChat(id) {
       try {
         const est = await api(`/chats/${id}/estimate`, {
           method: "POST",
-          json: { draft: input.value, model: modelInput.value.trim() || null, models: panelCfg.extra },
+          json: { draft: input.value, model: modelInput.value.trim() || null, models: panelCfg.extra, memory: memoryToggle.checked },
         });
         if (seq !== estSeq) return; // a newer estimate is on its way
         const parts = [`ورودی هر پیام ≈ ${fa(est.total_tokens)} توکن`];
-        if (est.system_tokens > 500) parts.push(`(مرجع‌ها ${fa(est.system_tokens)}، تاریخچه ${fa(est.history_tokens)})`);
+        if (est.system_tokens > 500) parts.push(`(مرجع‌ها ${fa(est.system_tokens - (est.memory_tokens || 0))}، تاریخچه ${fa(est.history_tokens)})`);
+        if (est.memory_notes) parts.push(`حافظه: ${fa(est.memory_notes)} یادداشت ≈ ${fa(est.memory_tokens)} توکن`);
         if (est.models_count) parts.push(`× ${fa(est.models_count)} مدل`);
         if (est.input_cost !== undefined) parts.push(`≈ ${fmtCost(est.input_cost)} هزینه‌ی ورودی${panelCfg.orchestrator && est.models_count ? " + جمع‌بندی" : ""}`);
         if (est.model && est.model.context_length) parts.push(`سقف مدل ${fa(Math.round(est.model.context_length / 1000))}K`);
@@ -582,6 +609,12 @@ async function openChat(id) {
           addBlock(grantBar(ev.grant_folder));
           curGroup = null;
         }
+      } else if (ev.type === "memory_suggestion") {
+        endText();
+        curGroup = null;
+        if (!state.memory.items.some((n) => n.id === ev.id)) state.memory.items.unshift({ id: ev.id, text: ev.text, status: "suggested" });
+        updateMemoryBadge();
+        addBlock(memoryCard(ev));
       } else if (ev.type === "notice") {
         endText();
         curGroup = null;
@@ -593,7 +626,7 @@ async function openChat(id) {
     try {
       const res = await fetch(`/api/chats/${id}/messages`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, model, agent: agentMode }), signal: ctrl.signal,
+        body: JSON.stringify({ content, model, agent: agentMode, memory: memoryToggle.checked }), signal: ctrl.signal,
       });
       if (!res.ok) {
         let msg = `خطا (${res.status})`;
@@ -711,7 +744,7 @@ async function openChat(id) {
     let lastRender = 0;
     try {
       await readSSE(`/api/chats/${id}/messages`,
-        { content, model, models: panelCfg.extra, orchestrator: panelCfg.orchestrator || null },
+        { content, model, models: panelCfg.extra, orchestrator: panelCfg.orchestrator || null, memory: memoryToggle.checked },
         ctrl.signal, (ev) => {
           pv.handle(ev);
           const now = performance.now();
@@ -756,6 +789,9 @@ function messageEl(m) {
         const t = el("div", { class: "seg-text" });
         t.innerHTML = renderMarkdown(seg.text);
         div.append(t);
+      } else if (seg.type === "memory") {
+        group = null;
+        div.append(memoryCard({ id: seg.memory_id, text: seg.text }));
       } else {
         if (!group) { group = toolGroup(); div.append(group.node); }
         const step = group.addStep({ name: seg.name, args: seg.args, status: seg.status });
@@ -1398,11 +1434,12 @@ $("#btn-new-chat").addEventListener("click", () => newChat().catch(showFatal));
 
 // ---------- theme and narrow-window menu ----------
 
-const THEMES = { auto: "◐ خودکار", light: "☀ روشن", dark: "☾ تیره" };
+const THEMES = { auto: ["auto", "خودکار"], light: ["sun", "روشن"], dark: ["moon", "تیره"] };
 function applyTheme(t) {
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
   else delete document.documentElement.dataset.theme;
-  $("#btn-theme").textContent = THEMES[t] || THEMES.auto;
+  const [ic, label] = THEMES[t] || THEMES.auto;
+  $("#btn-theme").replaceChildren(icon(ic), label);
 }
 $("#btn-theme").addEventListener("click", () => {
   const order = ["auto", "light", "dark"];
@@ -1517,6 +1554,333 @@ $("#ext-open").addEventListener("click", () => api("/open-folder", { method: "PO
 $("#connect-close").addEventListener("click", () => $("#connect-dialog").close());
 $("#btn-connect").addEventListener("click", () => openConnect("ext"));
 
+// ---------- memory: notes about the user that every model sees (the user approves each one) ----------
+
+async function refreshMemory() {
+  try {
+    state.memory = await api("/memory");
+    updateMemoryBadge();
+  } catch {}
+  return state.memory;
+}
+
+function updateMemoryBadge() {
+  const n = state.memory.items.filter((x) => x.status === "suggested").length;
+  const b = $("#memory-badge");
+  b.hidden = !n;
+  b.textContent = fa(n);
+  b.title = `${fa(n)} پیشنهاد منتظر تأیید`;
+}
+
+// Runs a memory API call, keeps state.memory in sync and redraws the open memory dialog.
+async function memoryAct(call) {
+  try {
+    state.memory = await call();
+    updateMemoryBadge();
+    if ($("#memory-dialog").open) renderMemory();
+    return true;
+  } catch (err) {
+    notify(err.message);
+    return false;
+  }
+}
+
+const memApprove = (id, text) =>
+  memoryAct(() => api(`/memory/${id}`, { method: "PATCH", json: { status: "active", ...(text ? { text } : {}) } }));
+const memDelete = (id) => memoryAct(() => api(`/memory/${id}`, { method: "DELETE" }));
+
+// The card a model's suggestion shows in the chat: save, edit then save, or drop.
+function memoryCard({ id, text }) {
+  const node = el("div", { class: "memory-card" });
+  const render = () => {
+    const note = state.memory.items.find((n) => n.id === id);
+    const status = !note ? "dropped" : note.status;
+    node.classList.toggle("done", status !== "suggested");
+    const label = { suggested: "پیشنهاد برای حافظه:", active: "توی حافظه ذخیره شد:", dropped: "پیشنهاد حافظه (ذخیره نشد):" }[status];
+    node.replaceChildren(el("span", { class: "mc-label" }, icon("memory"), label),
+      el("span", { class: "mc-text" }, note ? note.text : text));
+    if (status === "suggested") {
+      node.append(
+        el("button", { class: "primary", type: "button", onclick: async () => { if (await memApprove(id)) render(); } }, "ذخیره"),
+        el("button", { type: "button", onclick: async () => {
+          const t = await askText("یادداشت رو ویرایش کن:", note.text);
+          if (t && t.trim() && (await memApprove(id, t.trim()))) render();
+        } }, "ویرایش"),
+        el("button", { type: "button", onclick: async () => { if (await memDelete(id)) render(); } }, "نه"));
+    }
+  };
+  render();
+  return node;
+}
+
+async function openMemory() {
+  closeNav();
+  await refreshMemory();
+  renderMemory();
+  $("#memory-dialog").showModal();
+  $("#memory-input").focus();
+}
+
+function memoryRow(n) {
+  const src = n.source_title ? el("span", { class: "mem-src" }, `از «${n.source_title}»`) : null;
+  const actions = n.status === "suggested"
+    ? [el("button", { class: "primary", type: "button", onclick: () => memApprove(n.id) }, "ذخیره"),
+       el("button", { type: "button", onclick: () => memDelete(n.id) }, "نه")]
+    : [el("button", { type: "button", onclick: async () => {
+          const t = await askText("یادداشت رو ویرایش کن:", n.text);
+          if (t && t.trim() && t.trim() !== n.text) memoryAct(() => api(`/memory/${n.id}`, { method: "PATCH", json: { text: t.trim() } }));
+        } }, "ویرایش"),
+       el("button", { type: "button", title: "پاک کردن", "aria-label": "پاک کردن", onclick: () => memDelete(n.id) }, icon("trash"))];
+  return el("li", { class: n.status === "suggested" ? "pending" : "" },
+    el("span", { class: "mem-text" }, n.text, src), el("span", { class: "mem-actions" }, ...actions));
+}
+
+function renderMemory() {
+  const s = state.memory;
+  $("#memory-enabled").checked = s.enabled;
+  const pending = s.items.filter((n) => n.status === "suggested");
+  const active = s.items.filter((n) => n.status === "active");
+  $("#memory-suggested").hidden = !pending.length;
+  $("#memory-suggested-list").replaceChildren(...pending.map(memoryRow));
+  $("#memory-list").replaceChildren(...(active.length ? active.map(memoryRow)
+    : [el("li", { class: "empty-row" }, "هنوز یادداشتی نداری. بالا یکی بنویس، یا از صفحه‌ی یه مکالمه «نکته‌ها برای حافظه» رو بزن.")]));
+  $("#memory-meta").textContent = active.length
+    ? `${fa(active.length)} یادداشت · حدود ${fa(s.tokens)} توکن با هر پیام` +
+      (s.all_fit ? "" : ` · بیشتر از سقف ${fa(s.token_cap)} توکنه، پس با هر پیام فقط مرتبط‌ترین‌ها میرن`)
+    : "";
+}
+
+$("#btn-memory").addEventListener("click", openMemory);
+$("#memory-close").addEventListener("click", () => $("#memory-dialog").close());
+$("#memory-enabled").addEventListener("change", (e) =>
+  memoryAct(() => api("/memory/settings", { method: "PUT", json: { enabled: e.target.checked } })));
+$("#memory-add").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = $("#memory-input");
+  const text = input.value.trim();
+  if (!text) return;
+  if (await memoryAct(() => api("/memory", { method: "POST", json: { texts: [text] } }))) input.value = "";
+});
+
+// "Notes for memory" on an imported conversation: a model lists candidate notes, the user picks.
+async function extractMemory(conv, btn) {
+  const model = store.get("model");
+  if (!model) { notify("اول توی یه گفتگو یه مدل انتخاب کن؛ نکته‌ها با همون مدل درمیان."); return; }
+  const tokens = conv.tokens > 120000 && conv.summary ? conv.summary_tokens : conv.tokens;
+  if (!(await askConfirm(`مدل ${model} این مکالمه (حدود ${fa(tokens)} توکن) رو می‌خونه و نکته‌های ماندگار درباره‌ی تو رو پیشنهاد میده. چیزی بدون انتخاب تو ذخیره نمیشه.`, "شروع کن"))) return;
+  const old = [...btn.childNodes];
+  btn.disabled = true;
+  btn.replaceChildren(el("span", { class: "spinner" }), " در حال خوندن…");
+  let res;
+  try {
+    res = await api(`/conversations/${conv.id}/memory/extract`, { method: "POST", json: { model } });
+  } catch (err) {
+    notify(err.message);
+    return;
+  } finally {
+    btn.disabled = false;
+    btn.replaceChildren(...old);
+  }
+  const list = $("#extract-list");
+  $("#extract-intro").textContent =
+    `از «${conv.title}». هر کدوم رو که درسته و می‌خوای مدل‌ها بدونن تیک بزن؛ می‌تونی متنش رو هم همین‌جا عوض کنی.`;
+  list.replaceChildren(...(res.suggestions.length ? res.suggestions.map((s, i) => {
+    const cb = el("input", { type: "checkbox", id: `ex-${i}`, checked: !s.known, disabled: s.known });
+    const text = el("input", { type: "text", value: s.text, maxlength: 500, disabled: s.known });
+    return el("li", { class: s.known ? "known" : "" }, cb, el("span", { class: "mem-text" }, text,
+      s.known ? el("span", { class: "mem-src" }, "قبلاً توی حافظه هست") : null));
+  }) : [el("li", { class: "empty-row" }, "نکته‌ی ماندگاری پیدا نشد.")]));
+  $("#extract-meta").textContent = "";
+  $("#extract-save").disabled = !res.suggestions.some((s) => !s.known);
+  $("#extract-save").onclick = async () => {
+    const texts = [...list.querySelectorAll("li")]
+      .filter((li) => li.querySelector("input[type=checkbox]")?.checked)
+      .map((li) => li.querySelector("input[type=text]").value.trim()).filter(Boolean);
+    if (!texts.length) { $("#extract-meta").textContent = "چیزی انتخاب نشده."; return; }
+    if (await memoryAct(() => api("/memory", { method: "POST", json: { texts, source_conversation_id: conv.id } }))) {
+      $("#extract-dialog").close();
+      notify(`${fa(texts.length)} یادداشت به حافظه اضافه شد.`);
+    }
+  };
+  $("#extract-dialog").showModal();
+}
+$("#extract-close").addEventListener("click", () => $("#extract-dialog").close());
+
+// ---------- handoff: continue this chat in the original AI chat, or in another chatbot ----------
+// ConvoHub never writes into those sites itself: it prepares the text, and the user pastes it (or the
+// extension puts it into the message box) and presses Send.
+
+const ho = { chatId: null, getModel: null, info: null, upto: 0, format: "full", target: "new", req: 0 };
+const hoTarget = () => document.querySelector('input[name="ho-target"]:checked')?.value || "new";
+const hoFormat = () => document.querySelector('input[name="ho-format"]:checked')?.value || "full";
+
+async function openHandoff(chatId, getModel) {
+  ho.chatId = chatId;
+  ho.getModel = getModel;
+  try {
+    ho.info = await api(`/chats/${chatId}/handoff`);
+  } catch (err) {
+    notify(err.message);
+    return;
+  }
+  if (!ho.info.turns) {
+    notify("این گفتگو هنوز پیامی نداره. اول یه کم اینجا ادامه بده، بعد ببرش.");
+    return;
+  }
+  const hasRefs = ho.info.references.length > 0;
+  const orig = document.querySelector('input[name="ho-target"][value="original"]');
+  orig.disabled = !hasRefs;
+  orig.closest(".ho-card").title = hasRefs ? "" : "این گفتگو مرجعی نداره؛ از یه مکالمه‌ی ایمپورت‌شده شروع نشده.";
+  document.querySelector(`input[name="ho-target"][value="${hasRefs ? "original" : "new"}"]`).checked = true;
+  document.querySelector('input[name="ho-format"][value="full"]').checked = true;
+  $("#ho-since").checked = true;
+  $("#handoff-dialog").showModal();
+  hoRefresh();
+}
+
+function hoRender() {
+  const target = hoTarget();
+  const last = ho.info.last;
+  $("#ho-since-wrap").hidden = !(target === "original" && last);
+  if (last) {
+    $("#ho-since-label").textContent =
+      `فقط پیام‌های بعد از هندآف قبلی (${fmtDate(last.created_at)}؛ ${fa(ho.info.new_since_last)} پیام جدید)`;
+  }
+  const origin = $("#ho-origin");
+  origin.innerHTML = "";
+  if (target === "original") {
+    origin.append("مکالمه‌ی اصلی: ");
+    ho.info.references.forEach((r, i) => {
+      if (i) origin.append("، ");
+      origin.append(badge(r.source), ` «${r.title}» `);
+      if (r.source_url) origin.append(el("a", { href: r.source_url, target: "_blank", rel: "noreferrer" }, "باز کردن ↗"));
+    });
+    if (ho.info.references.length > 1) origin.append(el("br"), "اگه چند تا مرجع داری، این متن رو توی همونی بذار که می‌خوای ادامه‌ش بدی.");
+  } else {
+    origin.textContent = "مرجع‌ها با خلاصه‌شون میرن، اگه خلاصه ساخته شده باشه؛ وگرنه متن کامل. برای مکالمه‌های بلند «خلاصه با مدل» بهتره.";
+  }
+}
+
+async function hoRefresh() {
+  hoRender();
+  const target = hoTarget();
+  const format = hoFormat();
+  const text = $("#ho-text");
+  const meta = $("#ho-meta");
+  $("#ho-error").hidden = true;
+  meta.innerHTML = "";
+  ho.target = target;
+  ho.format = format;
+  const req = ++ho.req;
+  const body = { target, since_last: $("#ho-since").checked, format };
+  if (format === "brief") {
+    const model = ho.getModel() || store.get("model") || "";
+    text.value = "";
+    text.placeholder = "خلاصه هنوز ساخته نشده.";
+    if (!model) {
+      meta.textContent = "برای خلاصه اول بالای گفتگو یه مدل انتخاب کن.";
+      return;
+    }
+    const btn = el("button", { type: "button" }, `ساختن خلاصه با ${model}`);
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.textContent = "در حال نوشتن خلاصه…";
+      try {
+        const res = await api(`/chats/${ho.chatId}/handoff/build`, { method: "POST", json: { ...body, model } });
+        if (req !== ho.req) return;
+        hoShow(res);
+      } catch (err) {
+        $("#ho-error").textContent = err.message;
+        $("#ho-error").hidden = false;
+        btn.disabled = false;
+        btn.textContent = `ساختن خلاصه با ${model}`;
+      }
+    };
+    meta.append(btn, " ", el("span", {}, "یه مدل همه‌ی این متن رو می‌خونه و یه جمع‌بندی برای دستیار بعدی می‌نویسه (هزینه‌ی کمی داره)."));
+    return;
+  }
+  text.placeholder = "…";
+  try {
+    const res = await api(`/chats/${ho.chatId}/handoff/build`, { method: "POST", json: body });
+    if (req === ho.req) hoShow(res);
+  } catch (err) {
+    $("#ho-error").textContent = err.message;
+    $("#ho-error").hidden = false;
+  }
+}
+
+function hoShow(res) {
+  ho.upto = res.upto;
+  $("#ho-text").value = res.text;
+  const meta = $("#ho-meta");
+  meta.innerHTML = "";
+  if (!res.text) {
+    meta.textContent = "از هندآف قبلی تا حالا پیام جدیدی نیومده. اگه می‌خوای کل گفتگو بره، تیک بالا رو بردار.";
+    return;
+  }
+  const what = ho.target === "original" ? `${fa(res.count)} پیام` : "مرجع‌ها و گفتگو";
+  meta.textContent = `${what} · حدود ${fa(res.tokens)} توکن · ${fa(res.text.length)} حرف.` +
+    (res.text.length > 30000 ? " این متن بلنده؛ بعضی سایت‌ها پیام بلند رو قبول نمی‌کنن یا تبدیلش می‌کنن به فایل. «خلاصه با مدل» یا فایل ‎.md رو امتحان کن." : "") +
+    " می‌تونی متن رو قبل از فرستادن ویرایش کنی.";
+}
+
+async function hoDone(via) {
+  const text = $("#ho-text").value;
+  if (!text.trim()) {
+    notify("متنی برای فرستادن نیست.");
+    return false;
+  }
+  try {
+    ho.info = { ...ho.info, ...(await api(`/chats/${ho.chatId}/handoff/done`, {
+      method: "POST", json: { target: ho.target, format: ho.format, upto: ho.upto, via, text: via === "extension" ? text : null },
+    })) };
+    return true;
+  } catch (err) {
+    notify(err.message);
+    return false;
+  }
+}
+
+function hoFlash(btn, label) {
+  const old = [...btn.childNodes];
+  btn.textContent = label;
+  setTimeout(() => btn.replaceChildren(...old), 1800);
+}
+
+document.querySelectorAll('input[name="ho-target"], input[name="ho-format"]').forEach((r) => r.addEventListener("change", hoRefresh));
+$("#ho-since").addEventListener("change", hoRefresh);
+$("#ho-copy").addEventListener("click", async (e) => {
+  const text = $("#ho-text").value;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    $("#ho-text").select();
+    if (!document.execCommand("copy")) { notify("کپی نشد؛ متن رو انتخاب کن و Ctrl+C بزن."); return; }
+  }
+  if (await hoDone("copy")) hoFlash(e.currentTarget || $("#ho-copy"), "✓ کپی شد؛ حالا توی چت paste کن");
+});
+$("#ho-file").addEventListener("click", async () => {
+  const text = $("#ho-text").value;
+  if (!text.trim() || !(await hoDone("file"))) return;
+  const title = (ho.info.references[0]?.title || "convohub").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 60);
+  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" })),
+    download: `ConvoHub handoff - ${title}.md` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+$("#ho-ext").addEventListener("click", async () => {
+  if (!(await hoDone("extension"))) return;
+  const ref = ho.target === "original" && ho.info.references.length === 1 ? ho.info.references[0] : null;
+  const meta = $("#ho-meta");
+  meta.innerHTML = "";
+  meta.append("✓ متن منتظر افزونه‌ست (تا ۱۵ دقیقه). حالا چت مقصد رو توی Chrome یا Edge باز کن، یا اگه بازه refresh کن. " +
+    "پایین سمت راست دکمه‌ی «گذاشتن متن ConvoHub توی جعبه‌ی پیام» میاد؛ بزنش، متن رو یه نگاه بنداز و خودت Send رو بزن.");
+  if (ref?.source_url) meta.append(" ", el("a", { href: ref.source_url, target: "_blank", rel: "noreferrer" }, "باز کردن مکالمه‌ی اصلی ↗"));
+});
+$("#ho-close").addEventListener("click", () => $("#handoff-dialog").close());
+
 (async () => {
   try {
     await refreshKeyState();
@@ -1525,5 +1889,6 @@ $("#btn-connect").addEventListener("click", () => openConnect("ext"));
   if (!state.current) showWelcome();
   if (!state.keySet) openKeyDialog();  // first run: ask for the key right away
   loadModels();
+  refreshMemory();
   checkExtensionPending();
 })();

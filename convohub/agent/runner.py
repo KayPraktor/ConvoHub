@@ -7,7 +7,7 @@ import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from .. import db, openrouter
+from .. import db, memory, openrouter
 from . import settings as agent_cfg
 from . import skills as skills_mod
 from .fs import Sandbox, ToolFailure
@@ -191,10 +191,11 @@ def _log(chat_id: int, name: str, args: dict, status: str, approval: str, result
 
 
 async def run(chat_id: int, model: str, messages: list[dict], settings: dict, state: dict,
-              read_only: bool = False) -> AsyncIterator[dict]:
+              read_only: bool = False, suggest_memory: bool = False) -> AsyncIterator[dict]:
     """Yields UI events. Fills state['segments'] (text and tool steps in order) and state['usage'].
 
     read_only=True is plain chat mode: only the read tools, no MCP servers, nothing that changes anything.
+    suggest_memory=True offers the suggest_memory tool: it only stores a suggestion the user confirms in the app.
     """
     sandbox = Sandbox(settings["allowed_folders"], read_only=settings["skill_folders"])
     skills = skills_mod.discover(settings["skill_folders"])
@@ -207,7 +208,9 @@ async def run(chat_id: int, model: str, messages: list[dict], settings: dict, st
         for server, err in bridge.errors.items():
             yield {"type": "notice", "message": f"سرور MCP «{server}» وصل نشد: {err}"}
 
-        tools = {**READ_TOOLS, **({} if read_only else CHANGE_TOOLS), **(SKILL_TOOL if skills else {})}
+        tools = {**READ_TOOLS, **({} if read_only else CHANGE_TOOLS), **(SKILL_TOOL if skills else {}),
+                 **(memory.SUGGEST_TOOL if suggest_memory else {})}
+        suggested = 0
         tool_defs = _defs(tools) + bridge.definitions()
         offered = set(tools) | set(bridge.tools)
 
@@ -241,6 +244,34 @@ async def run(chat_id: int, model: str, messages: list[dict], settings: dict, st
             for call in calls:
                 name = call["name"]
                 result, status, approval = None, "ok", "auto"
+                if name == "suggest_memory" and name in offered:
+                    # Not a tool step: a card in the chat where the user saves or drops the note.
+                    try:
+                        args = json.loads(call["arguments"] or "{}")
+                    except ValueError:
+                        args = {}
+                    if not isinstance(args, dict):  # a model may send a list or a bare string
+                        args = {}
+                    note = None
+                    if suggested >= memory.MAX_SUGGESTIONS_PER_TURN:
+                        result = "Enough suggestions for this reply; don't suggest more now."
+                    else:
+                        try:
+                            note = await asyncio.to_thread(_suggest_note, str(args.get("text") or ""), chat_id)
+                        except ValueError as exc:
+                            result = f"Not saved: {exc}"
+                        except Exception as exc:  # never let a suggestion break the reply
+                            result = f"Not saved ({type(exc).__name__})."
+                    if note:
+                        suggested += 1
+                        result = ("Already in the user's memory." if note.get("duplicate") and note["status"] == "active"
+                                  else "Shown to the user as a suggestion; they decide. Don't mention it again.")
+                        if not (note.get("duplicate") and note["status"] == "active"):
+                            ev = {"id": note["id"], "text": note["text"]}
+                            segments.append({"type": "memory", "memory_id": note["id"], "text": note["text"]})
+                            yield {"type": "memory_suggestion", **ev}
+                    messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
+                    continue
                 try:
                     args = json.loads(call["arguments"] or "{}")
                     if not isinstance(args, dict):
@@ -309,6 +340,11 @@ async def run(chat_id: int, model: str, messages: list[dict], settings: dict, st
                 messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
 
         yield {"type": "notice", "message": f"ایجنت بعد از {MAX_STEPS} مرحله متوقف شد."}
+
+
+def _suggest_note(text: str, chat_id: int) -> dict:
+    with db.session() as conn:
+        return memory.add(conn, text, status="suggested", source_conversation_id=chat_id)
 
 
 def _grant_candidate(args: dict) -> str | None:

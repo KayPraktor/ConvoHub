@@ -28,7 +28,7 @@ def test_tools_listed(server):
             return {t.name for t in await c.list_tools()}
     assert asyncio.run(go()) == {
         "list_conversations", "search_conversations", "read_conversation",
-        "add_conversation_text", "add_conversation_from_link",
+        "add_conversation_text", "add_conversation_from_link", "read_memory",
     }
 
 

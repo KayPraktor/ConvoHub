@@ -74,3 +74,24 @@ def test_persian_messages_do_not_crash_an_old_console(tmp_path):
     out = subprocess.run([sys.executable, "-m", "convohub", "--stop"], capture_output=True, env=env,
                          cwd=str(config.ROOT_DIR), timeout=60)
     assert out.returncode == 0, out.stderr.decode("utf-8", "replace")
+
+
+def test_port_problem_explains_a_blocked_port(monkeypatch):
+    import socket
+
+    from convohub import __main__ as launcher
+    with socket.socket() as s:  # occupy a free port, then point ConvoHub at it
+        s.bind(("127.0.0.1", 0))
+        s.listen()
+        port = s.getsockname()[1]
+        monkeypatch.setattr(launcher.config, "PORT", port)
+        msg = launcher.port_problem()
+    assert str(port) in msg and "CONVOHUB_PORT" in msg
+    monkeypatch.setattr(launcher.config, "PORT", 0)  # any free port
+    assert launcher.port_problem() == ""
+
+
+def test_default_port_is_outside_windows_dynamic_ranges():
+    from convohub import config
+    if "CONVOHUB_PORT" not in __import__("os").environ:
+        assert 15000 < config.PORT < 49152

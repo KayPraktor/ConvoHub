@@ -56,6 +56,27 @@ def running() -> str:
         return "other" if s.connect_ex((config.HOST, config.PORT)) == 0 else ""
 
 
+def port_problem() -> str:
+    """A message for the user if we can't listen on our port, '' if we can.
+
+    Windows can reserve whole port ranges (Hyper-V, WSL, Docker), which makes binding fail with
+    'access forbidden' even though nothing is using the port. Without this check the app just didn't open.
+    """
+    import socket
+    with socket.socket() as s:
+        try:
+            s.bind((config.HOST, config.PORT))
+            return ""
+        except OSError as exc:
+            reserved = getattr(exc, "winerror", None) == 10013 or exc.errno == 13
+    how = ("یه عدد دیگه (مثلاً 38765) رو به‌عنوان CONVOHUB_PORT توی فایل .env بذار، "
+           "و همون آدرس رو توی تنظیمات افزونه هم عوض کن.")
+    if reserved:
+        return (f"ConvoHub نتونست روی پورت {config.PORT} بالا بیاد، چون ویندوز این پورت رو رزرو کرده "
+                f"(معمولاً Hyper-V، WSL یا Docker این کار رو می‌کنن).\n\n{how}")
+    return f"پورت {config.PORT} دست یه برنامه‌ی دیگه‌ست. اون برنامه رو ببند، یا {how}"
+
+
 def _wait_for_exit(pid: int | None, timeout: float = 20.0) -> None:
     """Wait until the server process has really exited, so an installer/uninstaller can replace its files."""
     deadline = time.time() + timeout
@@ -122,6 +143,11 @@ def main() -> None:
     if state == "other":
         _message(f"پورت {config.PORT} دست یه برنامه‌ی دیگه‌ست. اون برنامه رو ببند یا "
                  "CONVOHUB_PORT رو توی فایل .env عوض کن.")
+        return
+
+    problem = port_problem()
+    if problem:
+        _message(problem)
         return
 
     import uvicorn

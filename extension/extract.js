@@ -6,6 +6,7 @@
       source: "gemini",
       user: "user-query",
       assistant: "model-response message-content, response-container message-content",
+      composer: 'rich-textarea .ql-editor[contenteditable="true"], rich-textarea [contenteditable="true"]',
       title: () => {
         const sel = document.querySelector(
           "conversations-list .conversation.selected .conversation-title, [data-test-id='conversation-title'], share-viewer h1");
@@ -21,18 +22,21 @@
       user: '[data-user-message-bubble], [data-message-role="user"], [data-message-author-role="user"]',
       assistant: '[data-markdown-text-style="assistant-message"], [data-assistant-markdown-root], ' +
         '[data-message-role="assistant"], [data-message-author-role="assistant"]',
+      composer: '#prompt-textarea[contenteditable="true"], div.ProseMirror[contenteditable="true"], textarea#prompt-textarea, textarea[id*="composer"]',
       title: () => document.title.replace(/\s*[-|]\s*ChatGPT\s*$/i, ""),
     },
     "claude.ai": {
       source: "claude",
       user: '[data-testid="user-message"]',
       assistant: ".font-claude-response, .font-claude-message",
+      composer: 'div.ProseMirror[contenteditable="true"], [data-testid="chat-input"] [contenteditable="true"]',
       title: () => document.title.replace(/\s*[-|]\s*Claude\s*$/i, ""),
     },
     "grok.com": {
       source: "grok",
       user: '[class*="items-end"] .message-bubble',
       assistant: '[class*="items-start"] .message-bubble',
+      composer: 'form textarea, div.ProseMirror[contenteditable="true"], form [contenteditable="true"]',
       title: () => document.title.replace(/\s*[-|]\s*Grok\s*$/i, ""),
     },
   };
@@ -175,5 +179,67 @@
     };
   }
 
-  window.convohubExtract = { site, extract, countTurns, loadFullHistory, diagnose };
+  // ---------- handoff: put a text from ConvoHub into the message box (the user presses Send) ----------
+
+  // Editors keep hidden helper boxes next to the real one (Gemini's Quill has a 0-width ".ql-clipboard"),
+  // so "visible" means a real size on screen, and the biggest match wins.
+  const visible = (e) => {
+    if (!e || !e.isConnected || e.closest(".ql-clipboard")) return false;
+    const r = e.getBoundingClientRect();
+    return r.width > 40 && r.height > 10;
+  };
+
+  function composer() {
+    const s = site();
+    const pick = (sel) => {
+      const found = Array.from(document.querySelectorAll(sel)).filter(visible);
+      const area = (e) => { const r = e.getBoundingClientRect(); return r.width * r.height; };
+      return found.sort((a, b) => area(b) - area(a))[0] || null;
+    };
+    return (s && s.composer && pick(s.composer)) || pick('textarea, [contenteditable="true"]');
+  }
+
+  const boxText = (box) => (box.tagName === "TEXTAREA" ? box.value : box.innerText) || "";
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Returns {ok, via}. ok is false if no message box was found or the text didn't show up in it.
+  async function insertIntoComposer(text) {
+    const box = composer();
+    if (!box) return { ok: false, reason: "no-box" };
+    box.focus();
+    const probe = text.trim().slice(0, 30);
+    const landed = () => boxText(box).includes(probe);
+    if (box.tagName === "TEXTAREA") {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+      setter.call(box, (box.value.trim() ? box.value + "\n\n" : "") + text);
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+      return { ok: landed(), via: "value" };
+    }
+    // Caret at the end, then let the site's own editor take it as a paste (long texts may become an
+    // attachment, as with a real paste). If the site ignores the paste, type it in.
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const before = boxText(box).length;
+    let handled = false;
+    try {
+      const dt = new DataTransfer();
+      dt.setData("text/plain", text);
+      handled = !box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    } catch {}
+    if (handled) {
+      await sleep(400);
+      // Became an attachment (the box barely changed but something was added) or landed as text: done.
+      if (landed() || boxText(box).length !== before) return { ok: true, via: "paste" };
+    }
+    box.focus();
+    document.execCommand("insertText", false, text);
+    await sleep(150);
+    return { ok: landed(), via: "insertText" };
+  }
+
+  window.convohubExtract = { site, extract, countTurns, loadFullHistory, diagnose, composer, insertIntoComposer };
 })();

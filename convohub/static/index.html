@@ -13,11 +13,27 @@
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 21 2M16 7l3 3M18.5 4.5l2 2"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v5M15 2v5M6 7h12v5a6 6 0 0 1-12 0V7zM12 18v4"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-memory" viewBox="0 0 24 24"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5z"/><path d="M5 21.5A2.5 2.5 0 0 1 7.5 19H19v3H7.5M9 7h6M9 11h4"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+</svg>
 <div class="app" id="app">
   <aside class="sidebar">
     <div class="brand-row">
       <div class="brand">ConvoHub</div>
-      <button id="btn-theme" class="icon-btn" type="button" title="تم: خودکار / روشن / تیره">◐ خودکار</button>
+      <button id="btn-theme" class="icon-btn" type="button" title="تم: خودکار / روشن / تیره"><svg class="ic" aria-hidden="true"><use href="#i-auto"/></svg>خودکار</button>
     </div>
     <button id="btn-new-chat" class="primary">+ گفتگوی جدید</button>
     <button id="btn-import">+ ایمپورت مکالمه</button>
@@ -25,20 +41,21 @@
     <input id="search" type="search" placeholder="جستجو در عنوان و متن…" autocomplete="off">
     <div id="lists" class="lists"></div>
     <button id="key-warning" class="key-warning" type="button" hidden>
-      🔑 هنوز کلید OpenRouter وارد نشده. برای وارد کردنش اینجا رو بزن.
+      هنوز کلید OpenRouter وارد نشده. برای وارد کردنش اینجا رو بزن.
     </button>
     <div class="side-footer">
-      <button id="btn-settings" class="ghost" title="تنظیمات ایجنت: پوشه‌ها، skillها، سرورهای MCP">⚙ ایجنت</button>
-      <button id="btn-connect" class="ghost" title="افزونه‌ی مرورگر و وصل کردن Claude Code و بقیه">🔌 اتصال</button>
-      <button id="btn-key" class="ghost icon-only" title="کلید OpenRouter">🔑</button>
-      <button id="btn-backup" class="ghost icon-only" title="بکاپ">💾</button>
-      <button id="btn-quit" class="ghost icon-only" title="خاموش کردن ConvoHub">⏻</button>
+      <button id="btn-settings" class="ghost" title="تنظیمات ایجنت: پوشه‌ها، skillها، سرورهای MCP"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>ایجنت</button>
+      <button id="btn-memory" class="ghost" title="حافظه: چیزهایی که مدل‌ها درباره‌ی تو و کارهات می‌دونن"><svg class="ic" aria-hidden="true"><use href="#i-memory"/></svg>حافظه<span id="memory-badge" class="count-badge" hidden></span></button>
+      <button id="btn-connect" class="ghost" title="افزونه‌ی مرورگر و وصل کردن Claude Code و بقیه"><svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>اتصال</button>
+      <button id="btn-key" class="ghost icon-only" title="کلید OpenRouter" aria-label="کلید OpenRouter"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg></button>
+      <button id="btn-backup" class="ghost icon-only" title="بکاپ" aria-label="بکاپ"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg></button>
+      <button id="btn-quit" class="ghost icon-only" title="خاموش کردن ConvoHub" aria-label="خاموش کردن ConvoHub"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg></button>
     </div>
   </aside>
   <div class="scrim" id="scrim"></div>
   <div class="main">
     <div class="topbar">
-      <button id="btn-menu" class="icon-btn" type="button" title="منو">☰</button>
+      <button id="btn-menu" class="icon-btn" type="button" title="منو" aria-label="منو"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
       <div class="brand">ConvoHub</div>
     </div>
     <main id="view" class="view"></main>
@@ -193,6 +210,75 @@
       <div class="snippet"><h3>Cline <span class="hint">(پنل Cline ← MCP Servers ← Configure، داخل <code>"mcpServers"</code>)</span></h3><pre id="mcp-cline" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-cline">کپی</button></div>
     </section>
     <div class="dialog-actions"><button type="button" id="connect-close">بستن</button></div>
+  </div>
+</dialog>
+
+<!-- handoff: continue this chat in the original AI chat or in another chatbot -->
+<dialog id="handoff-dialog" class="wide">
+  <div class="dialog-body">
+    <h2>ادامه در جای دیگه</h2>
+    <div class="ho-choice" role="radiogroup">
+      <label class="ho-card"><input type="radio" name="ho-target" value="original">
+        <span><b>برگشت به مکالمه‌ی اصلی</b><small>مثلاً همون چت Gemini. فقط چیزهایی که اینجا اضافه شد فرستاده میشه، چون قبلی‌ها رو خودش داره.</small></span></label>
+      <label class="ho-card"><input type="radio" name="ho-target" value="new">
+        <span><b>بردن به یه چت‌بات دیگه</b><small>اون هیچی نمی‌دونه، پس کل ماجرا میره: مرجع‌ها (یا خلاصه‌شون) و همین گفتگو.</small></span></label>
+    </div>
+    <div class="ho-options">
+      <label id="ho-since-wrap" class="inline"><input type="checkbox" id="ho-since" checked> <span id="ho-since-label">فقط پیام‌های بعد از هندآف قبلی</span></label>
+      <span class="ho-format">
+        <label class="inline"><input type="radio" name="ho-format" value="full" checked> متن کامل</label>
+        <label class="inline"><input type="radio" name="ho-format" value="brief"> خلاصه با مدل</label>
+      </span>
+    </div>
+    <div id="ho-origin" class="hint"></div>
+    <textarea id="ho-text" rows="12" dir="auto" spellcheck="false" placeholder="…"></textarea>
+    <div id="ho-meta" class="hint"></div>
+    <div id="ho-error" class="error" hidden></div>
+    <div class="dialog-actions">
+      <button type="button" id="ho-copy" class="primary"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>کپی</button>
+      <button type="button" id="ho-file"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>دانلود فایل ‎.md</button>
+      <button type="button" id="ho-ext" title="چت مقصد رو توی مرورگرت باز کن؛ افزونه متن رو توی جعبه‌ی پیام می‌ذاره و خودت Send رو می‌زنی.">بفرست به افزونه</button>
+      <button type="button" id="ho-close">بستن</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- memory: notes about the user, sent to the models -->
+<dialog id="memory-dialog" class="wide">
+  <div class="dialog-body">
+    <h2>حافظه</h2>
+    <p class="hint">چیزهایی درباره‌ی خودت و کارهات که می‌خوای هر مدلی بدونه، تا لازم نباشه هر بار توضیح بدی.
+      با هر پیام برای همون مدلی که انتخاب کردی فرستاده میشن. مدل‌ها فقط می‌تونن <b>پیشنهاد</b> بدن؛ چیزی بدون تأیید تو ذخیره نمیشه.</p>
+    <label class="inline mem-switch"><input type="checkbox" id="memory-enabled"> استفاده از حافظه توی گفتگوها (هر گفتگو هم کلید خودش رو بالای صفحه داره)</label>
+    <form id="memory-add" class="mem-add">
+      <input id="memory-input" type="text" maxlength="500" placeholder="مثلاً: جواب‌ها رو کوتاه و فارسی محاوره‌ای بده" autocomplete="off">
+      <button type="submit" class="primary">اضافه کن</button>
+    </form>
+    <section id="memory-suggested" class="mem-section" hidden>
+      <h3>پیشنهادها <span class="hint">(تا تأیید نکنی، فرستاده نمیشن)</span></h3>
+      <ul class="mem-list" id="memory-suggested-list"></ul>
+    </section>
+    <section class="mem-section">
+      <h3>یادداشت‌ها</h3>
+      <ul class="mem-list" id="memory-list"></ul>
+    </section>
+    <div id="memory-meta" class="hint"></div>
+    <div id="memory-error" class="error" hidden></div>
+    <div class="dialog-actions"><button type="button" id="memory-close">بستن</button></div>
+  </div>
+</dialog>
+
+<!-- extract notes for memory from a conversation -->
+<dialog id="extract-dialog" class="wide">
+  <div class="dialog-body">
+    <h2>نکته‌ها برای حافظه</h2>
+    <p class="hint" id="extract-intro"></p>
+    <ul class="mem-list" id="extract-list"></ul>
+    <div id="extract-meta" class="hint"></div>
+    <div class="dialog-actions">
+      <button type="button" id="extract-save" class="primary">ذخیره‌ی انتخاب‌شده‌ها</button>
+      <button type="button" id="extract-close">بستن</button>
+    </div>
   </div>
 </dialog>
 
