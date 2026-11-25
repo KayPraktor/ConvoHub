@@ -478,3 +478,27 @@ input[type=radio], input[type=checkbox] { accent-color: var(--accent); }
 .side-footer button:not(.icon-only) { flex: 1 1 28%; padding-inline: 6px; }
 .side-footer .icon-only { flex: 1 1 0 !important; }
 .side-footer #btn-quit { flex: 1 1 0 !important; }
+
+/* remote connector */
+.remote-warn { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: var(--radius-sm); padding: 8px 12px; font-size: .86rem; }
+.remote-warn ul { margin: 4px 0 0; padding-inline-start: 1.2em; line-height: 1.8; }
+.remote-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.remote-calls-title { margin: 6px 0 2px; font-size: .9rem; }
+.remote-calls { list-style: none; margin: 0; padding: 0; font-size: .82rem; max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.remote-calls code { font-size: .76rem; }
+
+/* remote connector: 3 steps */
+.rstep { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rstep.disabled { opacity: .55; }
+.rstep.done { border-color: var(--accent); }
+.rstep-head { display: flex; align-items: center; gap: 8px; }
+.rstep-n { width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--accent-softer); color: var(--accent); display: inline-flex;
+  align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; flex: 0 0 auto; }
+.rstep.done .rstep-n { background: var(--accent); color: var(--accent-contrast, #fff); }
+.rstep-state { margin-inline-start: auto; font-size: .82rem; color: var(--accent); }
+.progress { flex: 1 1 160px; max-width: 260px; height: 8px; background: var(--accent-softer); border-radius: 999px; overflow: hidden; }
+.progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.remote-url-row { display: flex; gap: 8px; align-items: stretch; }
+.remote-url-row pre { flex: 1; margin: 0; background: var(--code-bg); border-radius: 8px; padding: 8px 10px; font-size: .8rem;
+  text-align: left; white-space: pre-wrap; word-break: break-all; }
+.remote-url-row button { flex: 0 0 auto; }

@@ -188,6 +188,7 @@
     <div class="tabs">
       <button type="button" class="tab active" data-ctab="ext">افزونه‌ی مرورگر</button>
       <button type="button" class="tab" data-ctab="mcp">Claude Code و بقیه</button>
+      <button type="button" class="tab" data-ctab="remote">Gemini و سرویس‌های آنلاین</button>
     </div>
     <section data-cpane="ext" class="connect-pane">
       <p class="hint">با افزونه، چتی که توی Chrome یا Edge باز کردی (Gemini، ChatGPT، Claude، Grok) با یه کلیک میاد توی کتابخونه و پیام‌های جدیدش خودکار اضافه میشن.</p>
@@ -208,6 +209,62 @@
       <div class="snippet"><h3>Hermes <span class="hint">(یه بار توی ترمینال بزن)</span></h3><pre id="mcp-hermes" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-hermes">کپی</button></div>
       <div class="snippet"><h3>OpenCode <span class="hint">(داخل بخش <code>"mcp"</code> فایل <code dir="ltr">%USERPROFILE%\.config\opencode\opencode.jsonc</code>)</span></h3><pre id="mcp-opencode" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-opencode">کپی</button></div>
       <div class="snippet"><h3>Cline <span class="hint">(پنل Cline ← MCP Servers ← Configure، داخل <code>"mcpServers"</code>)</span></h3><pre id="mcp-cline" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-cline">کپی</button></div>
+    </section>
+    <section data-cpane="remote" class="connect-pane" hidden>
+      <p class="hint">بعضی برنامه‌ها، مثل <b>Gemini</b>، سرور MCP رو از سرورهای خودشون صدا می‌زنن، پس به ConvoHub روی کامپیوترت نمی‌رسن و یه آدرس
+        <code dir="ltr">https://</code> می‌خوان. اینجا با سه قدم یه آدرس موقت و <b>فقط‌خوندنی</b> براشون می‌سازی.</p>
+      <div class="remote-warn">
+        <b>قبل از روشن کردن بدون:</b>
+        <ul>
+          <li>تا وقتی روشنه، هر کی این آدرس رو داشته باشه می‌تونه کتابخونه و حافظه‌ت رو <b>بخونه</b> (فقط خوندن؛ هیچی اضافه یا عوض نمیشه). آدرس رو به کسی نده.</li>
+          <li>چیزهایی که Gemini می‌خونه به سرورهای Google میرن.</li>
+          <li>آدرس هر بار که روشن می‌کنی عوض میشه؛ با بستن ConvoHub هم خودش خاموش میشه.</li>
+        </ul>
+      </div>
+
+      <div class="rstep" id="rstep-1">
+        <div class="rstep-head"><span class="rstep-n">۱</span><b>ابزار تونل Cloudflare</b><span class="rstep-state" id="rstep-1-state"></span></div>
+        <div class="rstep-body" id="rstep-1-body">
+          <p class="hint">یه برنامه‌ی رایگان و رسمی از Cloudflare (<code dir="ltr">cloudflared</code>) که آدرس اینترنتی رو می‌سازه. حساب لازم نداره.
+            ConvoHub خودش از سایت رسمی Cloudflare روی GitHub دانلودش می‌کنه (حدود ۵۵ مگ)، امضای دیجیتالش رو چک می‌کنه و توی پوشه‌ی خودش نگه می‌داره.</p>
+          <div class="remote-row">
+            <button type="button" id="remote-install" class="primary">نصب خودکار</button>
+            <div class="progress" id="remote-progress" hidden><div id="remote-progress-bar"></div></div>
+            <span id="remote-install-state" class="hint"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rstep" id="rstep-2">
+        <div class="rstep-head"><span class="rstep-n">۲</span><b>روشن کردن آدرس</b><span class="rstep-state" id="rstep-2-state"></span></div>
+        <div class="rstep-body">
+          <div class="remote-row">
+            <button type="button" id="remote-toggle" class="primary">روشن کردن آدرس اینترنتی</button>
+            <span id="remote-state" class="hint"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rstep" id="rstep-3">
+        <div class="rstep-head"><span class="rstep-n">۳</span><b>وصل کردن Gemini</b></div>
+        <div class="rstep-body" id="remote-on" hidden>
+          <div class="remote-url-row">
+            <pre id="remote-url" dir="ltr"></pre>
+            <button type="button" class="copy primary" data-copy-from="remote-url">کپی آدرس</button>
+          </div>
+          <ol class="howto">
+            <li>توی Gemini، از تنظیمات، <b>Developer Mode</b> رو باز کن و <b>Connect to an MCP server</b> رو بزن.</li>
+            <li>آدرس رو توی <b>MCP Server URL</b> بذار. Client ID و Secret رو خالی بذار و <b>Next</b> رو بزن.</li>
+            <li>صفحه‌ی بعد رو بخون؛ اگه موافقی تیک «I understand…» رو بزن و <b>Connect</b>.</li>
+            <li>بالای پنل Developer Mode، <b>ConvoHub</b> رو انتخاب کن و توی چت بپرس: «از کتابخونه‌ی ConvoHub مکالمه‌ی … رو بخون».</li>
+          </ol>
+          <p class="hint">دفعه‌ی بعد که روشنش کنی، آدرس عوض میشه؛ اتصال قبلی رو توی Gemini پاک کن و آدرس جدید رو بذار.</p>
+          <h3 class="remote-calls-title">آخرین درخواست‌ها</h3>
+          <ul id="remote-calls" class="remote-calls"></ul>
+        </div>
+        <p class="hint" id="remote-off-hint">بعد از قدم ۲، آدرس و راهنمای وصل کردن اینجا میاد.</p>
+      </div>
+      <div id="remote-error" class="error" hidden></div>
     </section>
     <div class="dialog-actions"><button type="button" id="connect-close">بستن</button></div>
   </div>

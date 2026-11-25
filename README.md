@@ -53,7 +53,7 @@ You think things through with Gemini, write with ChatGPT and code with Claude Co
 | 🧠 **Memory** | Short notes about you and your work (role, projects, how you like answers) that every model sees, so you don't repeat yourself. Add them yourself, pull candidates from an imported conversation, or approve what a model suggests mid-chat; nothing is saved without you. On/off globally and per chat |
 | 🧑‍⚖️ **Multi-model** | Ask several models at once, then let another model sum up where they agree and disagree |
 | 🛠️ **Agent mode** | The model can browse and read files in folders you allow. Writing, running commands and deleting always ask you first |
-| 🔌 **Integrations** | MCP server for Claude Code and others · your own MCP servers and skills inside agent mode |
+| 🔌 **Integrations** | MCP server for Claude Code and others · an optional, temporary, read-only `https://` address for cloud MCP clients such as Gemini (via a Cloudflare quick tunnel) · your own MCP servers and skills inside agent mode |
 | 💾 **Housekeeping** | Daily automatic backups · light, dark and auto themes |
 
 ## Install
@@ -158,6 +158,7 @@ Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
 > A command you approve in agent mode (PowerShell) is **not** limited to the allowed folders. It runs with your Windows account's full permissions on the **whole system**. Read the command before you approve it.
 
 - 🧾 **Imported text is data, not instructions.** If a conversation or file says "do X", the model is told not to act on it, and nothing changes on your system without your approval anyway.
+- 🌐 **The online address (off by default).** If you switch on Connect → "Gemini and online services", a read-only MCP server becomes reachable from the internet through a temporary Cloudflare address with a secret key in it. While it's on, anyone with that address can read your library and memory (nothing can be changed), and whatever Gemini reads goes to Google. The address and key change every time, and it switches off when ConvoHub closes. If the Cloudflare tunnel tool (cloudflared) is missing, ConvoHub can install it with one click from Cloudflare's official GitHub release, after checking its digital signature.
 - 🧩 **The extension** reads only the text of the chat page you have open. It never reads or stores cookies, passwords or tokens, and ConvoHub accepts only the extension you paired.
 - 🔗 **Share links** are visible to anyone who has them. Once imported, delete the link on the original site if you don't need it.
 

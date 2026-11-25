@@ -752,6 +752,33 @@ def extension_pairing_set(body: PairIn):
         raise HTTPException(400, str(exc)) from exc
 
 
+# ---------- remote connector: read-only MCP on a temporary public address (off by default) ----------
+
+@router.get("/remote")
+def remote_status():
+    from .remote import remote
+    return remote.status()
+
+
+@router.post("/remote/start")
+async def remote_start():
+    from .remote import remote
+    return await run_in_threadpool(remote.start)  # waits for Cloudflare to hand out the address
+
+
+@router.post("/remote/install")
+def remote_install():
+    """Download cloudflared (Cloudflare's official release, signature checked) into ConvoHub's data folder."""
+    from .remote import remote
+    return remote.start_install()
+
+
+@router.post("/remote/stop")
+async def remote_stop():
+    from .remote import remote
+    return await run_in_threadpool(remote.stop)
+
+
 # ---------- shutdown ----------
 
 @router.post("/shutdown")

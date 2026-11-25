@@ -1536,7 +1536,85 @@ async function openConnect(tab = "ext") {
 function setConnectTab(tab) {
   for (const b of document.querySelectorAll("[data-ctab]")) b.classList.toggle("active", b.dataset.ctab === tab);
   for (const s of document.querySelectorAll("[data-cpane]")) s.hidden = s.dataset.cpane !== tab;
+  clearInterval(state.remoteTimer);
+  if (tab === "remote") refreshRemote();
 }
+
+// ---------- remote connector: a temporary public address for Gemini and other cloud MCP clients ----------
+
+function renderRemote(s) {
+  const on = s.running;
+  const inst = s.install || { state: "idle" };
+  const installing = inst.state === "downloading";
+
+  // step 1: the tunnel tool
+  $("#rstep-1-state").textContent = s.cloudflared ? "✓ آماده" : "";
+  $("#rstep-1").classList.toggle("done", s.cloudflared);
+  $("#rstep-1-body").hidden = s.cloudflared;
+  $("#remote-install").hidden = installing;
+  $("#remote-progress").hidden = !installing;
+  if (installing) {
+    const pct = inst.total ? Math.round((100 * inst.done) / inst.total) : 0;
+    $("#remote-progress-bar").style.width = `${pct}%`;
+    $("#remote-install-state").textContent = inst.total
+      ? `در حال دانلود… ${fa((inst.done / 1e6).toFixed(0))} از ${fa((inst.total / 1e6).toFixed(0))} مگ` : "در حال شروع دانلود…";
+  } else {
+    $("#remote-install-state").textContent = inst.state === "error" ? inst.error : "";
+  }
+  $("#remote-install-state").classList.toggle("error", inst.state === "error");
+
+  // step 2: on / off
+  $("#rstep-2").classList.toggle("disabled", !s.cloudflared);
+  $("#rstep-2").classList.toggle("done", on && s.reachable === true);
+  $("#remote-toggle").disabled = !s.cloudflared && !on;
+  $("#remote-toggle").textContent = on ? "خاموش کردن" : "روشن کردن آدرس اینترنتی";
+  $("#remote-toggle").classList.toggle("primary", !on);
+  $("#remote-toggle").classList.toggle("danger", on);
+  $("#rstep-2-state").textContent = on ? (s.reachable === true ? "✓ روشن و در دسترس" : s.reachable === false ? "⚠ در دسترس نیست" : "در حال آماده شدن…") : "";
+  $("#remote-state").textContent = !on ? (s.cloudflared ? "خاموشه" : "اول قدم ۱ رو انجام بده")
+    : s.reachable === true ? `روشنه از ${s.started_at} و از اینترنت در دسترسه.`
+    : s.reachable === false ? s.reach_detail
+    : `روشن شد؛ داره چک می‌کنه که از اینترنت در دسترس باشه… ${s.reach_detail || ""}`;
+
+  // step 3: connect Gemini
+  $("#rstep-3").classList.toggle("disabled", !on);
+  $("#remote-on").hidden = !on;
+  $("#remote-off-hint").hidden = on;
+  if (on) $("#remote-url").textContent = s.url;
+  $("#remote-calls").replaceChildren(...(s.calls.length
+    ? s.calls.map((c) => el("li", {}, el("span", { class: "hint" }, c.at), " ", c.tool, " ",
+        el("code", { dir: "ltr" }, Object.keys(c.args).length ? JSON.stringify(c.args) : "")))
+    : [el("li", { class: "hint" }, "هنوز درخواستی نیومده.")]));
+  $("#remote-error").hidden = !s.error;
+  $("#remote-error").textContent = s.error || "";
+
+  // poll faster while something is in progress
+  const busy = installing || (on && s.reachable == null);
+  clearInterval(state.remoteTimer);
+  if ($("#connect-dialog").open) state.remoteTimer = setInterval(refreshRemote, busy ? 1500 : 4000);
+}
+
+async function refreshRemote() {
+  try { renderRemote(await api("/remote")); } catch {}
+}
+
+$("#remote-install").addEventListener("click", async () => {
+  try { renderRemote(await api("/remote/install", { method: "POST" })); } catch (err) { notify(err.message); }
+});
+
+$("#remote-toggle").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const s = await api("/remote").catch(() => ({ running: false }));
+  if (!s.running && !(await askConfirm("تا وقتی روشنه، هر کی آدرس رو داشته باشه می‌تونه کتابخونه و حافظه‌ت رو بخونه، و چیزهایی که Gemini می‌خونه به Google میره. روشن بشه؟", "روشن کن"))) return;
+  btn.disabled = true;
+  btn.textContent = s.running ? "در حال خاموش کردن…" : "در حال ساختن آدرس (تا ۴۵ ثانیه)…";
+  try {
+    renderRemote(await api(s.running ? "/remote/stop" : "/remote/start", { method: "POST" }));
+  } catch (err) {
+    notify(err.message);
+    refreshRemote();
+  }
+});
 
 document.querySelectorAll("[data-ctab]").forEach((b) => b.addEventListener("click", () => setConnectTab(b.dataset.ctab)));
 document.querySelectorAll("button.copy").forEach((b) => b.addEventListener("click", async () => {
@@ -1551,7 +1629,7 @@ document.querySelectorAll("button.copy").forEach((b) => b.addEventListener("clic
   }
 }));
 $("#ext-open").addEventListener("click", () => api("/open-folder", { method: "POST", json: { which: "extension" } }).catch((e) => notify(e.message)));
-$("#connect-close").addEventListener("click", () => $("#connect-dialog").close());
+$("#connect-close").addEventListener("click", () => { clearInterval(state.remoteTimer); $("#connect-dialog").close(); });
 $("#btn-connect").addEventListener("click", () => openConnect("ext"));
 
 // ---------- memory: notes about the user that every model sees (the user approves each one) ----------

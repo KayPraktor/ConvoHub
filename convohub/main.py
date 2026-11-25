@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(_auto_backup_loop())
     yield
     task.cancel()
+    from .remote import remote
+    await asyncio.to_thread(remote.stop)  # the public address never outlives ConvoHub
 
 
 app = FastAPI(title="ConvoHub", version=__version__, lifespan=lifespan)
