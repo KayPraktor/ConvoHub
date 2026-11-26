@@ -183,6 +183,8 @@ def test_real_signature_check_rejects_an_unsigned_file(tmp_path):
 def test_install_runs_in_background_and_reports(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remote, "find_cloudflared", lambda: None)
+    # The one-click install only exists on Windows; this tests the background mechanism on every OS.
+    monkeypatch.setattr(remote, "can_install", lambda: True)
 
     def fake_install(progress=None, **kw):
         progress(5, 10)
