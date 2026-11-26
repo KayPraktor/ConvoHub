@@ -8,6 +8,7 @@ import re
 from urllib.parse import urlparse
 
 from .. import handoff, library
+from ..i18n import t
 from ..text import guess_title
 
 # host, path regex (must capture the whole conversation path), source
@@ -78,7 +79,7 @@ def sync(conn, url: str, title: str | None, messages: list[dict], full: bool) ->
     """
     found = canonical(url)
     if not found:
-        raise SyncError("این صفحه یه مکالمه‌ی پشتیبانی‌شده نیست.")
+        raise SyncError(t("import.ext_unsupported_page"))
     source, curl = found
     messages = [{"role": m["role"], "content": m["content"].strip()} for m in messages
                 if m.get("role") in ("user", "assistant") and (m.get("content") or "").strip()]
@@ -86,7 +87,7 @@ def sync(conn, url: str, title: str | None, messages: list[dict], full: bool) ->
         if m["role"] == "user":
             m["content"] = handoff.compact(m["content"])
     if not messages:
-        raise SyncError("پیامی توی صفحه پیدا نشد.")
+        raise SyncError(t("import.ext_no_messages"))
 
     row = conn.execute(
         "SELECT id FROM conversations WHERE source_url = ? AND import_method = 'extension'", (curl,)

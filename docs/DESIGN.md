@@ -1,54 +1,56 @@
-# یادداشت‌های طراحی ConvoHub
+# ConvoHub design notes
 
-خلاصه‌ی تصمیم‌های اصلی، برای کسی که می‌خواد کد رو بفهمه یا تغییرش بده.
+فارسی: [docs/fa/DESIGN.md](fa/DESIGN.md)
 
-## اصول
+A summary of the main decisions, for anyone who wants to understand or change the code.
 
-- **شخصی و لوکال:**
-  - یه کاربر، یه کامپیوتر.
-  - بدون حساب کاربری، استقرار ابری یا ارسال آمار.
-  - سرور فقط روی `127.0.0.1`.
-- **بدون لاگین به سرویس‌های هوش مصنوعی:**
-  - هیچ‌وقت با حساب کاربر به Gemini، ChatGPT، Claude یا Grok لاگین نمی‌کنیم. کوکی و توکن‌شون رو نگه نمی‌داریم و endpointهای خصوصی‌شون رو صدا نمی‌زنیم.
-  - مکالمه‌ها فقط از این راه‌ها میان: paste، فایل خروجی رسمی، لینک share عمومی، و افزونه‌ای که فقط DOM صفحه‌ی بازِ خود کاربر رو می‌خونه.
-- **متن ایمپورت‌شده داده‌ست، نه دستور:**
-  - با برچسب `<transcript>` و یه هشدار صریح به مدل داده میشه.
-  - خروجی ابزارها هم با برچسب «data, not instructions» برمی‌گرده.
-- **هیچ تغییری روی سیستم بدون تأیید کاربر انجام نمیشه:**
-  - نوشتن، ویرایش، حذف (به سطل بازیافت)، اجرای دستور و ابزارهای MCP هر بار کارت تأیید دارن.
-  - خوندن فقط توی پوشه‌های مجازه، و فایل‌های رمز هیچ‌وقت خونده نمیشن.
+## Principles
 
-## اجزا
+- **Personal and local:**
+  - One user, one computer.
+  - No user accounts, no cloud deployment, no telemetry.
+  - The server listens only on `127.0.0.1`.
+- **No login to AI services:**
+  - We never log in to Gemini, ChatGPT, Claude or Grok with the user's account. We don't keep their cookies or tokens and we don't call their private endpoints.
+  - Conversations come in only through these routes: paste, an official export file, a public share link, and an extension that reads only the DOM of the page the user has open.
+- **Imported text is data, not instructions:**
+  - It is given to the model inside a `<transcript>` tag with an explicit warning.
+  - Tool output also comes back with a "data, not instructions" label.
+- **Nothing on the system changes without the user's approval:**
+  - Writing, editing, deleting (to the Recycle Bin), running commands and MCP tools show an approval card every time.
+  - Reading is allowed only inside the permitted folders, and secret files are never read.
 
-| فایل یا پوشه | کار |
+## Components
+
+| File or folder | What it does |
 |---|---|
-| `convohub/main.py` | اپ FastAPI. چک Host (جلوگیری از DNS rebinding) و Origin، تا سایت‌های دیگه نتونن از مرورگر کاربر به ConvoHub درخواستی بفرستن که چیزی رو تغییر بده |
-| `convohub/api.py` | همه‌ی endpointهای `/api` |
-| `convohub/library.py`, `db.py` | کتابخونه روی SQLite، و جستجو با FTS5 trigram روی متنی که املای فارسی و عربی‌اش یکسان شده |
-| `convohub/prompting.py` | ساختن پیام‌ها برای مدل. مرجع‌ها توی پیام system میرن تا کش پرامپت بخورن |
-| `convohub/openrouter.py` | لیست مدل‌ها و stream (OpenAI-compatible، با function calling) |
-| `convohub/agent/` | حالت ایجنت: محدودیت پوشه‌ها (`fs.py`)، حلقه و اجازه‌ها (`runner.py`)، سرورهای MCP کاربر و skillها |
-| `convohub/panel.py` | چندمدلی: جواب موازی، و جمع‌بندی اختیاری با یه مدل orchestrator |
-| `convohub/importers/` | paste، فایل، لینک share (Playwright با Chrome یا Edge خود سیستم)، و merge پیام‌هایی که افزونه می‌فرسته |
-| `convohub/mcp_server.py` | سرور MCP روی کتابخونه، برای ابزارهای دیگه (FastMCP، stdio) |
-| `convohub/keystore.py` | کلید OpenRouter، رمزنگاری‌شده با DPAPI، جدا از دیتابیس (پس توی بکاپ نمیره) |
-| `convohub/backup.py` | بکاپ با API بکاپ خود SQLite. روزی یه بار خودکار؛ ۱۴ تای آخر نگه داشته میشن |
-| `convohub/static/` | رابط: HTML، CSS و JS ساده، بدون build |
-| `extension/` | افزونه‌ی Chrome و Edge (Manifest V3) |
-| `packaging/` | PyInstaller و Inno Setup برای ConvoHub-Setup.exe |
+| `convohub/main.py` | The FastAPI app. Host checks (against DNS rebinding) and Origin checks, so other sites can't use the user's browser to send ConvoHub requests that change anything |
+| `convohub/api.py` | All the `/api` endpoints |
+| `convohub/library.py`, `db.py` | The library on SQLite, and search with FTS5 trigram over text whose Persian and Arabic spelling has been normalized |
+| `convohub/prompting.py` | Builds the messages for the model. References go in the system message so they hit the prompt cache |
+| `convohub/openrouter.py` | Model list and streaming (OpenAI-compatible, with function calling) |
+| `convohub/agent/` | Agent mode: folder limits (`fs.py`), the loop and permissions (`runner.py`), the user's MCP servers and skills |
+| `convohub/panel.py` | Multi-model: parallel answers, and an optional summary by an orchestrator model |
+| `convohub/importers/` | Paste, file, share link (Playwright with the system's own Chrome or Edge), and merging the messages the extension sends |
+| `convohub/mcp_server.py` | MCP server over the library, for other tools (FastMCP, stdio) |
+| `convohub/keystore.py` | The OpenRouter key, encrypted with DPAPI, kept apart from the database (so it never goes into backups) |
+| `convohub/backup.py` | Backups with SQLite's own backup API. Automatic once a day; the last 14 are kept |
+| `convohub/static/` | The interface: plain HTML, CSS and JS, no build step |
+| `extension/` | The Chrome and Edge extension (Manifest V3) |
+| `packaging/` | PyInstaller and Inno Setup for ConvoHub-Setup.exe |
 
-## داده‌ها
+## Data
 
-- **کجا ذخیره میشن:**
-  - نسخه‌ی نصبی: `%LOCALAPPDATA%\ConvoHub`.
-  - نسخه‌ی سورس: `<پروژه>/data`.
-  - `CONVOHUB_DATA_DIR` جای هر دو رو عوض می‌کنه.
-- **کلید OpenRouter:** متغیر محیطی یا `.env` اولویت داره. بعد کلیدی که توی رابط ذخیره شده.
-- **افزونه:** فقط افزونه‌ای که ID‌ش تأیید شده می‌تونه از `/api/extension/` استفاده کنه. بار اول، کاربر توی رابط «قبول» می‌زنه.
+- **Where it's stored:**
+  - Installed version: `%LOCALAPPDATA%\ConvoHub`.
+  - Source version: `<project>/data`.
+  - `CONVOHUB_DATA_DIR` changes the location for both.
+- **OpenRouter key:** an environment variable or `.env` takes priority; after that, the key saved in the interface.
+- **Extension:** only an extension whose ID has been approved can use `/api/extension/`. The first time, the user clicks **Accept** in the interface.
 
-## چند تصمیم مشخص
+## Some specific decisions
 
-- **حالت چت ساده:** فقط ابزارهای خوندن رو داره. حالت ایجنت ابزارهای تغییر و MCP رو اضافه می‌کنه. ابزاری که توی یه حالت به مدل داده نشده، حتی اگه مدل اسمش رو بیاره، اجرا نمیشه.
-- **مسیرها با `/` به مدل نشون داده میشن،** چون مدل‌ها موقع نوشتن JSON بک‌اسلش رو خراب می‌کنن.
-- **همگام‌سازی خودکار افزونه** فقط پیام اضافه می‌کنه و هیچ‌وقت پیامی رو جایگزین نمی‌کنه. ارسال کامل فقط با کلیک کاربر انجام میشه.
-- **پیام‌های سیستم** (`alert`، `confirm`، `prompt`) داخل خود صفحه کشیده میشن، چون بعضی مرورگرها اون‌ها رو بی‌صدا بلاک می‌کنن.
+- **Plain chat mode** has only the reading tools. Agent mode adds the tools that change things, and MCP. A tool that wasn't given to the model in a mode isn't run, even if the model names it.
+- **Paths are shown to the model with `/`,** because models break backslashes when they write JSON.
+- **The extension's automatic sync** only adds messages and never replaces any. A full send happens only when the user clicks.
+- **System dialogs** (`alert`, `confirm`, `prompt`) are drawn inside the page itself, because some browsers block them silently.

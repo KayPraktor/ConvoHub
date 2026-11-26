@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8">
   <title>ConvoHub</title>
@@ -13,20 +13,19 @@
   </style>
 </head>
 <body>
+  <!-- Texts come from i18n.js (data-i18n keys) in the ConvoHub app's language; the English here is only a placeholder. -->
   <h3>ConvoHub</h3>
-  <label>آدرس ConvoHub
+  <label><span data-i18n="optServer">ConvoHub address</span>
     <input id="server" type="text" placeholder="http://127.0.0.1:28765">
   </label>
-  <label><input id="auto" type="checkbox"> پیام‌های جدید مکالمه‌هایی که قبلاً فرستادم خودکار اضافه بشن</label>
-  <div class="hint">
-    روی صفحه‌ی چت (Gemini، ChatGPT، Claude، Grok) دکمه‌ی «بفرست به ConvoHub» پایین سمت راست میاد.
-    افزونه فقط متن صفحه‌ای که باز کردی رو می‌خونه؛ نه کوکی، نه رمز، نه چیز دیگه.
-  </div>
+  <label><input id="auto" type="checkbox"> <span data-i18n="optAuto">Automatically add new messages to chats I've already sent</span></label>
+  <div class="hint" data-i18n="optHint"></div>
   <div>
-    <button id="save">ذخیره</button>
-    <button id="test">تست اتصال</button>
+    <button id="save" data-i18n="optSave">Save</button>
+    <button id="test" data-i18n="optTest">Test connection</button>
   </div>
   <div id="msg"></div>
+  <script src="i18n.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

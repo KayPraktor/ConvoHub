@@ -1,12 +1,15 @@
 """Import from public share links using a headless browser.
 
-Uses the Chrome or Edge already installed on Windows (no separate browser download).
+Uses the Chrome or Edge already installed on the computer (no separate browser download); on a Mac,
+Playwright finds them in /Applications.
 The browser starts with an empty profile: no cookies, no login (CLAUDE.md hard constraint #1).
 """
 
 import re
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
+
+from ..i18n import t, tp
 
 
 # host regex, path regex, source
@@ -114,6 +117,8 @@ _WAIT_SELECTOR = (
     '[data-testid="user-message"], .font-claude-response, .message-bubble'
 )
 
+# Bot-check pages in English and Persian (the browser runs with a Persian locale). Persian kept on purpose:
+# it matches page text, it isn't shown to the user (tests/test_i18n.py allows this line).
 _BOT_WALL = re.compile(r"cloudflare|ray id|just a moment|verify you are human|تایید امنیتی|چند لحظه صبر", re.I)
 
 
@@ -121,16 +126,13 @@ def fetch_link(url: str) -> LinkResult:
     """Blocking. Call from a worker thread."""
     source = match_link(url)
     if not source:
-        raise LinkImportError(
-            "این لینک رو نمی‌شناسم. لینک share از Gemini، Grok، Claude یا ChatGPT بده "
-            "(مثلاً https://gemini.google.com/share/...)."
-        )
+        raise LinkImportError(t("link.unknown"))
     try:
         from playwright.sync_api import Error as PWError
         from playwright.sync_api import TimeoutError as PWTimeout
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
-        raise LinkImportError("Playwright نصب نیست. یه بار `uv sync` رو اجرا کن.") from exc
+        raise LinkImportError(t("link.no_playwright")) from exc
 
     with sync_playwright() as pw:
         browser = _launch(pw, PWError)
@@ -139,13 +141,9 @@ def fetch_link(url: str) -> LinkResult:
             try:
                 page.goto(url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
             except PWTimeout as exc:
-                raise LinkImportError(
-                    "صفحه توی ۳۰ ثانیه باز نشد. شاید این سایت بدون VPN باز نمیشه؛ VPN رو چک کن و دوباره امتحان کن."
-                ) from exc
+                raise LinkImportError(t("link.timeout")) from exc
             except PWError as exc:
-                raise LinkImportError(
-                    "نتونستم صفحه رو باز کنم (شبکه یا آدرس). شاید این سایت بدون VPN باز نمیشه."
-                ) from exc
+                raise LinkImportError(t("link.open_failed")) from exc
 
             try:
                 page.wait_for_selector(_WAIT_SELECTOR, timeout=CONTENT_WAIT_MS, state="attached")
@@ -155,7 +153,7 @@ def fetch_link(url: str) -> LinkResult:
 
             final_host = urlparse(page.url).hostname or ""
             if "accounts.google.com" in final_host or "/login" in page.url or "/auth" in page.url:
-                raise LinkImportError("این لینک لاگین می‌خواد؛ احتمالاً خصوصیه یا پاک شده. لینک share عمومی بده.")
+                raise LinkImportError(t("link.login"))
 
             data = page.evaluate(_EXTRACT_JS)
         finally:
@@ -167,13 +165,8 @@ def fetch_link(url: str) -> LinkResult:
         # a landing page, a "not found" page or a bot check as if it were the conversation.
         page_text = (data.get("title") or "") + "\n" + (data.get("text") or "")
         if _BOT_WALL.search(page_text):
-            raise LinkImportError(
-                "این سایت جلوی مرورگر خودکار رو گرفت (بررسی ضدربات). فعلاً متن مکالمه رو کپی و paste کن."
-            )
-        raise LinkImportError(
-            "توی این صفحه مکالمه‌ای پیدا نشد. یا لینک پاک شده/خصوصیه، یا ظاهر سایت عوض شده. "
-            "فعلاً متن مکالمه رو کپی و paste کن."
-        )
+            raise LinkImportError(t("link.bot_wall"))
+        raise LinkImportError(t("link.no_conversation"))
 
     from ..library import render_messages
     return LinkResult(source=source, url=url.strip(), title=_clean_title(data.get("title") or ""),
@@ -193,10 +186,7 @@ def _launch(pw, PWError):
             return pw.chromium.launch(**kwargs)
         except PWError as exc:
             last = exc
-    raise LinkImportError(
-        "برای ایمپورت از لینک، Chrome یا Microsoft Edge باید روی این سیستم نصب باشه و هیچ‌کدوم پیدا نشد. "
-        "یکی‌شون رو نصب کن (Edge معمولاً همراه ویندوزه)، یا متن مکالمه رو کپی و paste کن."
-    ) from last
+    raise LinkImportError(tp("link.no_browser")) from last
 
 
 def _clean_title(title: str) -> str:

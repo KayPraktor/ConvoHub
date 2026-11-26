@@ -1,10 +1,12 @@
 import asyncio
+import re
 
 import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
 from convohub import config, db
+from convohub.i18n import t
 
 
 @pytest.fixture
@@ -62,5 +64,5 @@ def test_read_errors(server):
 
 
 def test_bad_link_is_a_clear_error(server):
-    with pytest.raises(ToolError, match="لینک"):
+    with pytest.raises(ToolError, match=re.escape(t("link.unknown"))):
         call(server, "add_conversation_from_link", {"url": "https://example.com/x"})

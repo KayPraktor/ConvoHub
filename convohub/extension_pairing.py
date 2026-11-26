@@ -10,6 +10,7 @@ import re
 import time
 
 from . import db
+from .i18n import t
 
 KEY = "extension_id"
 ID_RE = re.compile(r"^[a-z0-9-]{8,64}$")
@@ -41,7 +42,7 @@ def status() -> dict:
 def set_paired(ext_id: str | None) -> dict:
     ext_id = (ext_id or "").strip().lower() or None
     if ext_id and not ID_RE.match(ext_id):
-        raise PairingError("ID افزونه معتبر نیست (از صفحه‌ی chrome://extensions کپی کن).")
+        raise PairingError(t("extension.bad_id"))
     with db.session() as conn:
         conn.execute(
             "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",

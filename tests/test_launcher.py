@@ -63,7 +63,7 @@ def test_icon_is_a_valid_ico_with_large_image():
 def test_shortcuts_are_created(tmp_path):
     from convohub import shortcut
     made = shortcut.create(desktop=tmp_path)
-    assert [p.name for p in made] == ["ConvoHub.lnk", "ConvoHub - خاموش.lnk"]
+    assert [p.name for p in made] == ["ConvoHub.lnk", "ConvoHub - Stop.lnk"]  # English: no language chosen yet
     assert all(p.exists() and p.stat().st_size > 0 for p in made)
 
 

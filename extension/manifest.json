@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ConvoHub",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Send the chat you have open (Gemini, ChatGPT, Claude, Grok) to your local ConvoHub library, keep it up to date, and bring ConvoHub chats back.",
   "permissions": ["storage"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
@@ -14,10 +14,10 @@
         "https://claude.ai/*",
         "https://grok.com/*"
       ],
-      "js": ["extract.js", "content.js"],
+      "js": ["extract.js", "i18n.js", "content.js"],
       "run_at": "document_idle"
     }
   ],
   "options_ui": { "page": "options.html", "open_in_tab": false },
-  "action": { "default_title": "ConvoHub — تنظیمات" }
+  "action": { "default_title": "ConvoHub — Settings" }
 }

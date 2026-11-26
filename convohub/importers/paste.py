@@ -1,6 +1,7 @@
 """Shared import steps used by the web API and the MCP server."""
 
 from .. import library
+from ..i18n import t
 from ..text import SOURCES, clean_pasted, detect_source, guess_title
 from .links import LinkResult
 
@@ -9,7 +10,7 @@ def import_text(conn, text: str, title: str | None = None, source: str | None = 
     """Save pasted text as a conversation. Raises ValueError if it is empty."""
     cleaned = clean_pasted(text)
     if not cleaned:
-        raise ValueError("متن خالیه.")
+        raise ValueError(t("import.empty_text"))
     if not (source in SOURCES and source != "native"):
         source = detect_source(text)
     return library.create_conversation(

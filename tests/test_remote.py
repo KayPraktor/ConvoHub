@@ -1,6 +1,7 @@
 """Remote connector: the read-only MCP app behind a secret path (the Cloudflare tunnel itself isn't run here)."""
 
 import asyncio
+import re
 import socket
 import threading
 import time
@@ -11,6 +12,7 @@ import uvicorn
 from fastapi.testclient import TestClient
 
 from convohub import config, db, library, memory, remote
+from convohub.i18n import t
 
 
 @pytest.fixture
@@ -153,7 +155,7 @@ def test_install_keeps_only_a_signed_file(tmp_path, monkeypatch):
 
     dest.unlink()
     monkeypatch.setattr(remote, "signature_ok", lambda p: (False, "NotSigned"))
-    with pytest.raises(remote.InstallError, match="امضا"):
+    with pytest.raises(remote.InstallError, match=re.escape(t("remote.bad_signature", detail="NotSigned"))):
         remote.install_cloudflared(dest=dest)
     assert not dest.exists() and not dest.with_suffix(".part").exists()  # nothing unsigned is left behind
 
@@ -209,4 +211,4 @@ def test_install_runs_in_background_and_reports(tmp_path, monkeypatch):
 def test_reachability_check_reports_not_ready(monkeypatch):
     monkeypatch.setattr(remote, "_public_ips", lambda host: [])
     ok, detail = remote.check_reachable("https://abc.trycloudflare.com/s/mcp")
-    assert not ok and "آماده" in detail
+    assert not ok and detail == t("remote.not_ready")

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__, backup, config, db, extension_pairing
 from .api import router
+from .i18n import t
 
 
 async def _auto_backup_loop():
@@ -26,6 +27,10 @@ async def _auto_backup_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    try:
+        config.sync_extension()  # macOS app: the browser extension goes to the data folder (see config.py)
+    except OSError as exc:  # never stop the app over this; the Connect page shows the folder is missing
+        print(f"[ConvoHub] copying the browser extension failed: {exc}", file=sys.stderr)
     task = asyncio.create_task(_auto_backup_loop())
     yield
     task.cancel()
@@ -70,7 +75,7 @@ async def local_only(request, call_next):
         if ext_id != extension_pairing.paired_id():
             extension_pairing.note_pending(ext_id)
             return JSONResponse({
-                "detail": "این افزونه هنوز توی ConvoHub تأیید نشده. صفحه‌ی ConvoHub رو باز کن و «قبول» رو بزن.",
+                "detail": t("api.extension_unpaired"),
                 "unpaired": True, "extension_id": ext_id,
             }, status_code=403)
         return await call_next(request)

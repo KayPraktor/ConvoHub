@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass, field
 
 from .. import library
+from ..i18n import t
 from ..text import clean_pasted, detect_source, guess_title
 
 MAX_FILE_BYTES = 200 * 1024 * 1024
@@ -29,7 +30,7 @@ class ParsedConversation:
 
 def parse_file(filename: str, data: bytes) -> list[ParsedConversation]:
     if len(data) > MAX_FILE_BYTES:
-        raise ImportFileError("فایل خیلی بزرگه (بیشتر از ۲۰۰ مگابایت).")
+        raise ImportFileError(t("file.too_big"))
     text = _decode(data)
     name = filename.lower()
 
@@ -37,22 +38,22 @@ def parse_file(filename: str, data: bytes) -> list[ParsedConversation]:
         try:
             obj = json.loads(text)
         except ValueError as exc:
-            raise ImportFileError("فایل JSON خرابه یا کامل نیست.") from exc
+            raise ImportFileError(t("file.bad_json")) from exc
         convs = _parse_chatgpt(obj) or _parse_claude(obj)
         if convs is None:
-            raise ImportFileError("این فرمت JSON رو نمی‌شناسم. فعلاً خروجی ChatGPT و Claude پشتیبانی میشه.")
+            raise ImportFileError(t("file.unknown_json"))
         if not convs:
-            raise ImportFileError("توی فایل مکالمه‌ای پیدا نشد.")
+            raise ImportFileError(t("file.no_conversations"))
         return convs
 
     if name.endswith((".txt", ".md", ".markdown")):
         cleaned = clean_pasted(text)
         if not cleaned:
-            raise ImportFileError("فایل خالیه.")
+            raise ImportFileError(t("file.empty"))
         stem = filename.rsplit(".", 1)[0]
         return [ParsedConversation(title=stem or guess_title(cleaned), source=detect_source(text), raw_text=cleaned)]
 
-    raise ImportFileError("فرمت فایل پشتیبانی نمیشه. فایل .txt، .md یا .json بده.")
+    raise ImportFileError(t("file.unsupported"))
 
 
 def _decode(data: bytes) -> str:
@@ -67,7 +68,7 @@ def _decode(data: bytes) -> str:
 def _finish(title: str, source: str, messages: list[dict]) -> ParsedConversation:
     messages = [m for m in messages if m["content"].strip()]
     return ParsedConversation(
-        title=(title or "").strip() or "مکالمه‌ی بدون عنوان",
+        title=(title or "").strip() or t("import.untitled"),
         source=source,
         raw_text=library.render_messages(messages),
         messages=messages,

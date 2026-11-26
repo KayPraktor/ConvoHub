@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import config
+from .i18n import t, tp
 
 KEEP_AUTO = 14
 AUTO_EVERY = timedelta(hours=24)
@@ -37,9 +38,9 @@ def set_folder(conn, raw: str | None) -> Path:
     if raw:
         p = Path(raw).expanduser()
         if not p.is_absolute():
-            raise BackupError("مسیر باید کامل باشه، مثل D:\\Backups\\ConvoHub")
+            raise BackupError(tp("backup.path_not_absolute"))
         if not p.is_dir():
-            raise BackupError(f"این پوشه وجود نداره: {raw}")
+            raise BackupError(t("backup.folder_missing", path=raw))
         value = str(p.resolve())
     else:
         value = ""
@@ -103,8 +104,8 @@ def auto_if_due(conn) -> dict | None:
 
 def path_for(conn, name: str) -> Path:
     if not NAME_RE.match(name):
-        raise BackupError("اسم فایل بکاپ معتبر نیست.")
+        raise BackupError(t("backup.bad_name"))
     p = folder(conn) / name
     if not p.is_file():
-        raise BackupError("این بکاپ پیدا نشد.")
+        raise BackupError(t("backup.not_found"))
     return p

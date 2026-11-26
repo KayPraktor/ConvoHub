@@ -2,6 +2,8 @@
 
 import re
 
+from .i18n import t
+
 # Lines that the AI apps add around a copied page. Matched on the whole (stripped) line.
 _HEADER_LINES = {
     "conversation with gemini",
@@ -55,9 +57,11 @@ def guess_title(text: str, max_len: int = 60) -> str:
         if len(line) < 3:
             continue
         return line if len(line) <= max_len else line[: max_len - 1].rstrip() + "…"
-    return "مکالمه‌ی بدون عنوان"
+    return t("import.untitled")
 
 
+# Persian kept on purpose in the next two lines: they map Arabic spelling variants to Persian letters for
+# search; nothing here is shown to the user (tests/test_i18n.py allows these lines).
 _ARABIC_TO_PERSIAN = str.maketrans({"ي": "ی", "ى": "ی", "ك": "ک", "ة": "ه", "‌": None, "‏": None, "‎": None})
 _DIACRITICS = re.compile(r"[ً-ٰٟ]")
 

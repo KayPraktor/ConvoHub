@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 import httpx
 
 from . import config
+from .i18n import t
 
 BASE_URL = "https://openrouter.ai/api/v1"
 _HEADERS = {"X-Title": "ConvoHub"}
@@ -17,35 +18,21 @@ _MODELS_TTL = 3600
 
 
 class OpenRouterError(Exception):
-    """An error with a message that can be shown to the user (in Persian)."""
+    """An error with a message that can be shown to the user (in the interface language)."""
 
 
 def _auth_headers() -> dict:
     key = config.openrouter_key()
     if not key:
-        raise OpenRouterError("کلید OpenRouter توی فایل .env نیست. کلید رو بذار و برنامه رو دوباره اجرا کن.")
+        raise OpenRouterError(t("openrouter.no_key"))
     return {**_HEADERS, "Authorization": f"Bearer {key}"}
 
 
 def _network_error(exc: Exception) -> OpenRouterError:
-    return OpenRouterError(
-        "به OpenRouter وصل نشدم. اینترنت یا VPN رو چک کن و دوباره امتحان کن. "
-        f"({type(exc).__name__})"
-    )
+    return OpenRouterError(t("openrouter.network", error=type(exc).__name__))
 
 
-_STATUS_MESSAGES = {
-    400: "درخواست رو قبول نکرد",
-    401: "کلید OpenRouter معتبر نیست",
-    402: "اعتبار حساب OpenRouter تموم شده",
-    403: "این درخواست اجازه نداره (شاید فیلتر محتوای مدل)",
-    404: "این مدل پیدا نشد",
-    408: "مدل دیر جواب داد",
-    413: "متن برای این مدل زیادی بلنده",
-    429: "تعداد درخواست‌ها زیاد شده؛ کمی صبر کن",
-    502: "سرویس‌دهنده‌ی مدل در دسترس نیست",
-    503: "هیچ سرویس‌دهنده‌ای برای این مدل در دسترس نیست",
-}
+_KNOWN_STATUS = (400, 401, 402, 403, 404, 408, 413, 429, 502, 503)  # messages.py: openrouter.status_<code>
 
 
 def _status_error(status: int, body: str) -> OpenRouterError:
@@ -54,7 +41,10 @@ def _status_error(status: int, body: str) -> OpenRouterError:
         detail = json.loads(body).get("error", {}).get("message", "")
     except (ValueError, AttributeError):
         pass
-    base = _STATUS_MESSAGES.get(status, f"خطای OpenRouter (کد {status})")
+    if status in _KNOWN_STATUS:
+        base = t(f"openrouter.status_{status}")
+    else:
+        base = t("openrouter.status_other", status=status)
     return OpenRouterError(f"{base}. {detail}".strip())
 
 
@@ -137,7 +127,7 @@ async def stream_chat(model: str, messages: list[dict], max_tokens: int | None =
                         continue
                     if "error" in chunk:
                         err = chunk["error"]
-                        raise OpenRouterError(f"مدل وسط جواب خطا داد: {err.get('message', err)}")
+                        raise OpenRouterError(t("openrouter.stream_error", error=err.get("message", err)))
                     for choice in chunk.get("choices") or []:
                         delta = choice.get("delta") or {}
                         text = delta.get("content")
@@ -186,9 +176,9 @@ async def check_key(key: str) -> tuple[bool | None, str]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
             res = await client.get(f"{BASE_URL}/key", headers={**_HEADERS, "Authorization": f"Bearer {key}"})
     except httpx.HTTPError as exc:
-        return None, f"به OpenRouter وصل نشدم ({type(exc).__name__})؛ کلید ذخیره شد ولی بررسی نشد."
+        return None, t("key.check_network", error=type(exc).__name__)
     if res.status_code == 200:
         return True, ""
     if res.status_code in (401, 403):
-        return False, "OpenRouter این کلید رو قبول نکرد. دوباره از سایت OpenRouter کپی‌اش کن."
-    return None, f"OpenRouter جواب غیرمنتظره داد (کد {res.status_code})؛ کلید ذخیره شد ولی بررسی نشد."
+        return False, t("key.rejected")
+    return None, t("key.check_unexpected", status=res.status_code)

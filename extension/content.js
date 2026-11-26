@@ -1,17 +1,21 @@
 // The "send to ConvoHub" button on chat pages, and automatic updates for chats that were sent before.
 (() => {
   const X = window.convohubExtract;
-  if (!X || !X.site()) return;
+  const I = window.convohubI18n;
+  if (!X || !I || !X.site()) return;
+  const t = I.t;
 
   const QUIET_MS = 4000; // wait until the page stops changing (the answer has finished streaming)
   const ask = (msg) => new Promise((resolve) => {
     try {
-      chrome.runtime.sendMessage(msg, (res) => resolve(res || { ok: false, error: "no response" }));
+      chrome.runtime.sendMessage(msg, (res) => {
+        if (res && res.lang && I.setLang(res.lang)) setTimeout(onLangChange, 0);
+        resolve(res || { ok: false, error: t("noResponse") });
+      });
     } catch (e) {
-      resolve({ ok: false, error: "افزونه دوباره بارگذاری شده؛ صفحه رو refresh کن." });
+      resolve({ ok: false, error: t("reloaded") });
     }
   });
-  const fa = (n) => Number(n).toLocaleString("fa-IR");
 
   // ---------- the button (in a shadow root so the site's CSS can't touch it) ----------
   const host = document.createElement("div");
@@ -20,7 +24,7 @@
   // Built with DOM calls, not innerHTML: Gemini's page enforces Trusted Types, which rejects innerHTML.
   const style = document.createElement("style");
   style.textContent = `
-    button { font: 13px Vazirmatn, Tahoma, sans-serif; direction: rtl; border: 1px solid #c7cdd8;
+    button { font: 13px Vazirmatn, Tahoma, sans-serif; border: 1px solid #c7cdd8;
       border-radius: 999px; padding: 6px 12px; background: #fff; color: #1f2328; cursor: pointer;
       box-shadow: 0 2px 8px rgb(0 0 0 / .15); opacity: .85; display: flex; gap: 6px; align-items: center; }
     button:hover { opacity: 1; }
@@ -37,7 +41,8 @@
   dot.className = "dot";
   const label = document.createElement("span");
   label.className = "label";
-  label.textContent = "بفرست به ConvoHub";
+  label.textContent = t("send");
+  btn.dir = I.dir(); // the text direction follows the language (rtl for Persian)
   btn.append(dot, label);
   root.append(style, btn);
   host.style.display = "none"; // shown once we know this page is a conversation (or the server is off)
@@ -66,15 +71,15 @@
     if (!st.ok) {
       known = false;
       host.style.display = "";
-      const label = st.offline ? "ConvoHub روشن نیست" : st.unpaired ? "توی ConvoHub «قبول» رو بزن" : "بفرست به ConvoHub";
+      const label = st.offline ? t("offlineShort") : st.unpaired ? t("unpaired") : t("send");
       show(label, st.offline || st.unpaired ? "error" : "", st.error || "");
       return;
     }
     if (!st.data.supported) { host.style.display = "none"; return; }
     host.style.display = "";
     known = st.data.known;
-    if (known) show(`همگام با ConvoHub (${fa(st.data.messages)} پیام)`, "synced", "پیام‌های جدید خودکار اضافه میشن. برای فرستادن کامل دوباره کلیک کن.");
-    else show("بفرست به ConvoHub");
+    if (known) show(t("synced", { n: st.data.messages }), "synced", t("syncedTitle"));
+    else show(t("send"));
   }
 
   async function send(full) {
@@ -83,33 +88,31 @@
     btn.disabled = true;
     try {
       if (full) {
-        show("در حال بارگذاری کل مکالمه…");
-        await X.loadFullHistory((n) => show(`در حال بارگذاری… (${fa(n)} پیام)`));
+        show(t("loadingAll"));
+        await X.loadFullHistory((n) => show(t("loadingN", { n })));
       }
       const data = X.extract();
       if (!data || !data.messages.length) {
         // Send ConvoHub a structure-only report of this page (no message text) so the selectors can be fixed.
         const report = { ...X.diagnose(), extensionVersion: chrome.runtime.getManifest().version };
         const sent = await ask({ type: "diagnose", payload: report });
-        show("پیامی پیدا نشد", "error", sent.ok
-          ? "یه گزارش از ساختار صفحه (بدون متن پیام‌ها) توی ConvoHub ذخیره شد: data/extension-diagnose.json"
-          : "اگه صفحه هنوز کامل باز نشده، چند ثانیه بعد دوباره امتحان کن.");
+        show(t("noMessages"), "error", sent.ok ? t("diagSaved") : t("diagRetry"));
         return;
       }
       const res = await ask({ type: "sync", payload: { ...data, full } });
       if (!res.ok) {
-        show(res.offline ? "ConvoHub روشن نیست" : res.unpaired ? "توی ConvoHub «قبول» رو بزن" : "خطا", "error", res.error);
+        show(res.offline ? t("offlineShort") : res.unpaired ? t("unpaired") : t("error"), "error", res.error);
         return;
       }
       lastSent = fingerprint(data);
       known = true;
       const r = res.data;
       const msg = {
-        created: `ذخیره شد (${fa(r.total)} پیام)`,
-        appended: `${fa(r.added)} پیام جدید اضافه شد`,
-        replaced: `دوباره ذخیره شد (${fa(r.total)} پیام)`,
-        unchanged: `همگام با ConvoHub (${fa(r.total)} پیام)`,
-        unaligned: "با نسخه‌ی قبلی جور نشد؛ برای فرستادن کامل کلیک کن",
+        created: t("created", { n: r.total }),
+        appended: t("appended", { n: r.added }),
+        replaced: t("replaced", { n: r.total }),
+        unchanged: t("synced", { n: r.total }),
+        unaligned: t("unaligned"),
       }[r.mode];
       show(msg, r.mode === "unaligned" ? "error" : "synced");
     } finally {
@@ -153,6 +156,7 @@
   hoStyle.textContent = style.textContent + " button { border-color: #0f766e; } button.done { border-color: #16a34a; }";
   const hoBtn = document.createElement("button");
   hoBtn.type = "button";
+  hoBtn.dir = I.dir();
   hoRoot.append(hoStyle, hoBtn);
   document.documentElement.appendChild(hoHost);
   let hoText = null;      // taken from ConvoHub but not placed yet (e.g. no message box found)
@@ -169,7 +173,7 @@
     if (document.visibilityState !== "visible" || Date.now() < hoShownUntil || hoText) return;
     const res = await ask({ type: "handoff-peek" });
     if (res.ok && res.data.pending) {
-      hoShow(`گذاشتن متن ConvoHub توی جعبه‌ی پیام («${res.data.title}»)`, "", "متن رو توی جعبه‌ی پیام همین چت می‌ذاره. بعدش خودت نگاهش کن و Send رو بزن.");
+      hoShow(t("hoPending", { title: res.data.title }), "", t("hoPendingTitle"));
     } else {
       hoHost.style.display = "none";
     }
@@ -178,21 +182,21 @@
   async function hoPlace() {
     if (!hoText) {
       const res = await ask({ type: "handoff-take" });
-      if (!res.ok) { hoShow(res.error || "متنی منتظر نیست", "error"); hoShownUntil = Date.now() + 6000; return; }
+      if (!res.ok) { hoShow(res.error || t("hoNothing"), "error"); hoShownUntil = Date.now() + 6000; return; }
       hoText = res.data.text;
     }
     const r = await X.insertIntoComposer(hoText);
     if (r.ok) {
       hoText = null;
-      hoShow("متن گذاشته شد؛ یه نگاه بنداز و Send رو بزن", "done");
+      hoShow(t("hoPlaced"), "done");
     } else {
       // No message box found, or the text didn't show up in it: put it on the clipboard so it's not lost.
       try {
         await navigator.clipboard.writeText(hoText);
         hoText = null;
-        hoShow("نتونستم متن رو توی جعبه‌ی پیام بذارم؛ کپی شد، روی جعبه کلیک کن و Ctrl+V بزن", "error");
+        hoShow(t("hoCopied"), "error");
       } catch {
-        hoShow("نتونستم متن رو توی جعبه‌ی پیام بذارم؛ روی جعبه‌ی پیام کلیک کن و دوباره این دکمه رو بزن", "error");
+        hoShow(t("hoRetry"), "error");
         return;
       }
     }
@@ -202,7 +206,17 @@
   hoBtn.addEventListener("click", hoPlace);
   setInterval(hoCheck, 3000);
   document.addEventListener("visibilitychange", hoCheck);
-  hoCheck();
+  // ---------- language: follows the ConvoHub app (background.js tells us with every answer) ----------
+  function onLangChange() {
+    btn.dir = I.dir();
+    hoBtn.dir = I.dir();
+    if (!busy) refreshStatus();
+    if (!hoText && hoHost.style.display !== "none") { hoShownUntil = 0; hoCheck(); }
+  }
 
-  refreshStatus();
+  // Ask for the language first, so the button doesn't flash in the browser's language.
+  ask({ type: "lang" }).then(() => {
+    hoCheck();
+    refreshStatus();
+  });
 })();

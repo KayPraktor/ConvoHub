@@ -177,7 +177,7 @@ def test_plain_chat_knows_agent_mode_is_off(tmp_path, monkeypatch):
     with db.session() as conn:
         cid = library.create_chat(conn, "t", None)
         plain = prompting.build_messages(conn, cid, "m", "hi")
-        agent = prompting.build_messages(conn, cid, "m", "hi", extra_system=runner.AGENT_PROMPT)
+        agent = prompting.build_messages(conn, cid, "m", "hi", extra_system=runner.agent_prompt())
     assert "Agent mode is OFF" in plain[0]["content"]
     assert "AGENT MODE is on" in agent[0]["content"] and "Agent mode is OFF" not in agent[0]["content"]
 

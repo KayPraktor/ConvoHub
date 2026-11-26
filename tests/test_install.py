@@ -44,8 +44,12 @@ def test_key_saved_encrypted_and_never_returned(client, tmp_path, monkeypatch):
     res = client.put("/api/settings/key", json={"key": key}).json()
     assert res["set"] and res["source"] == "saved" and key not in str(res) and res["hint"].endswith("cdef")
 
-    raw = (tmp_path / keystore.KEY_FILE_NAME).read_bytes()
-    assert key.encode() not in raw  # encrypted on disk (DPAPI on Windows)
+    path = tmp_path / keystore.KEY_FILE_NAME
+    raw = path.read_bytes()
+    if sys.platform == "win32":
+        assert key.encode() not in raw  # encrypted on disk (DPAPI on Windows)
+    else:
+        assert path.stat().st_mode & 0o077 == 0  # elsewhere (and the Mac's fallback): only this user can read it
     assert config.openrouter_key() == key
     assert client.get("/api/health").json()["openrouter_key_set"] is True
     assert key not in client.get("/api/settings/key").text
@@ -86,6 +90,7 @@ def test_integrations_use_this_machines_paths(client):
 
 
 def test_frozen_build_uses_appdata_and_bundled_paths(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "platform", "win32")  # the Windows installer's layout (on any test machine)
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "ConvoHub" / "ConvoHub.exe"))
     monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path / "ConvoHub" / "_internal"), raising=False)

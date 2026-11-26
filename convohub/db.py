@@ -118,6 +118,8 @@ def init_db(db_path: Path | None = None) -> None:
             for name, decl in cols.items():
                 if name not in existing:
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+        from . import i18n  # here, not at the top: i18n imports this module
+        i18n.remember_install(conn, db_path)
         conn.commit()
 
 

@@ -1,7 +1,8 @@
 """MCP server over the ConvoHub library, for Claude Code, OpenCode, Cline, Hermes, ...
 
 Run (stdio):  uv run --directory <project folder> python -m convohub.mcp_server
-Installed app: convohub-mcp.exe in the program folder. The «اتصال» page in the UI shows the exact command.
+Installed app: convohub-mcp.exe in the program folder (macOS: ConvoHub.app/Contents/MacOS/convohub-mcp).
+The "Connect" page in the UI shows the exact command.
 Nothing may be printed to stdout here: stdout is the MCP channel.
 """
 

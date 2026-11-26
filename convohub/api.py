@@ -11,7 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import __version__, backup, config, db, extension_pairing, handoff, keystore, library, memory, openrouter, panel, prompting
+from . import __version__, backup, config, db, extension_pairing, handoff, i18n, keystore, library, memory, openrouter, osinfo, panel, prompting
 from .importers import files as file_import
 from .importers import links as link_import
 from .importers import extension as ext_import
@@ -19,16 +19,21 @@ from .importers import paste as paste_import
 from .agent import runner as agent_runner
 from .agent import settings as agent_cfg
 from .agent import skills as agent_skills
+from .i18n import t
 from .text import SOURCES, clean_pasted, detect_source, estimate_tokens, guess_title
 
 router = APIRouter(prefix="/api")
 
-NEW_CHAT_TITLE = "گفتگوی جدید"
 LINK_TIMEOUT_S = 90
 
 
+def is_default_chat_title(title: str) -> bool:
+    """A new chat's title in any language: still renamed after its first message even if the language changed."""
+    return title in {t("api.new_chat_title", lang=lang) for lang in i18n.LANGS}
+
+
 def _not_found():
-    raise HTTPException(404, "پیدا نشد.")
+    raise HTTPException(404, t("api.not_found"))
 
 
 def _source_or_detect(source: str | None, text: str) -> str:
@@ -41,7 +46,30 @@ def _source_or_detect(source: str | None, text: str) -> str:
 def health():
     # Only report whether the key exists, never the key itself.
     return {"ok": True, "version": __version__, "openrouter_key_set": config.openrouter_key() is not None,
-            "pid": os.getpid()}  # lets `--stop` wait until this process has really exited
+            "pid": os.getpid(),  # lets `--stop` wait until this process has really exited
+            "lang": i18n.current(),  # the browser extension follows the app's language
+            "platform": osinfo.name()}  # "win32" | "darwin" | "linux": the UI shows this system's texts
+
+
+# ---------- interface language ----------
+
+class LangIn(BaseModel):
+    lang: str
+
+
+@router.get("/settings/lang")
+def get_lang():
+    # lang is None when the user never chose (a new install): the UI then picks from the browser and saves it.
+    return {"lang": i18n.stored(), "available": list(i18n.LANGS)}
+
+
+@router.put("/settings/lang")
+def put_lang(body: LangIn):
+    if body.lang not in i18n.LANGS:
+        raise HTTPException(400, t("api.bad_lang"))
+    with db.session() as conn:
+        i18n.set_lang(conn, body.lang)
+    return {"lang": body.lang, "available": list(i18n.LANGS)}
 
 
 # ---------- library ----------
@@ -98,7 +126,7 @@ async def summarize(conv_id: int, body: SummarizeIn):
     except openrouter.OpenRouterError as exc:
         raise HTTPException(502, str(exc)) from exc
     if not summary.strip():
-        raise HTTPException(502, "مدل خلاصه‌ای برنگردوند.")
+        raise HTTPException(502, t("api.no_summary"))
     with db.session() as conn:
         library.set_summary(conn, conv_id, summary.strip(), body.model)
     return {"summary": summary.strip(), "usage": usage, "tokens": estimate_tokens(summary)}
@@ -160,7 +188,7 @@ async def _fetch_link(url: str) -> link_import.LinkResult:
     try:
         return await asyncio.wait_for(run_in_threadpool(link_import.fetch_link, url), LINK_TIMEOUT_S)
     except TimeoutError as exc:
-        raise HTTPException(504, "خوندن لینک بیشتر از ۹۰ ثانیه طول کشید. شبکه یا VPN رو چک کن.") from exc
+        raise HTTPException(504, t("api.link_timeout")) from exc
     except link_import.LinkImportError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -181,7 +209,7 @@ async def refresh_link(conv_id: int):
     if not row:
         _not_found()
     if not row["source_url"]:
-        raise HTTPException(400, "این مکالمه از لینک نیومده.")
+        raise HTTPException(400, t("api.not_from_link"))
     result = await _fetch_link(row["source_url"])
     with db.session() as conn:
         library.replace_content(conn, conv_id, result.raw_text, result.messages)
@@ -214,7 +242,7 @@ class ChatIn(BaseModel):
 @router.post("/chats")
 def create_chat(body: ChatIn):
     with db.session() as conn:
-        chat_id = library.create_chat(conn, (body.title or "").strip() or NEW_CHAT_TITLE, body.model)
+        chat_id = library.create_chat(conn, (body.title or "").strip() or t("api.new_chat_title"), body.model)
         library.set_context(conn, chat_id, [c.model_dump() for c in body.context])
     return {"id": chat_id}
 
@@ -325,14 +353,14 @@ async def send_message(chat_id: int, body: MessageIn):
     # use tools: it may look at allowed folders but change nothing), plain (model has no tool support).
     panel_models = list(dict.fromkeys([body.model, *[m.strip() for m in body.models if m.strip()]]))
     if len(panel_models) > panel.MAX_MODELS:
-        raise HTTPException(400, f"حداکثر {panel.MAX_MODELS} مدل با هم.")
+        raise HTTPException(400, t("api.too_many_models", n=panel.MAX_MODELS))
     if len(panel_models) > 1:
         mode = "panel"
     elif body.agent:
         mode = "agent"
     else:
         mode = "read" if await _model_supports_tools(body.model) else "plain"
-    extra = {"agent": agent_runner.AGENT_PROMPT, "read": agent_runner.READ_PROMPT, "plain": None,
+    extra = {"agent": agent_runner.agent_prompt(), "read": agent_runner.read_prompt(), "plain": None,
              "panel": PANEL_PROMPT}[mode]
 
     with db.session() as conn:
@@ -345,7 +373,7 @@ async def send_message(chat_id: int, body: MessageIn):
         messages = prompting.build_messages(conn, chat_id, body.model, body.content, extra_system=extra,
                                             memory_text=mem_text)
         library.add_message(conn, chat_id, "user", body.content)
-        if chat["title"] == NEW_CHAT_TITLE:
+        if is_default_chat_title(chat["title"]):
             library.rename(conn, chat_id, guess_title(body.content, 50))
 
     async def plain():
@@ -384,7 +412,7 @@ async def send_message(chat_id: int, body: MessageIn):
             has_tools = any(s["type"] in ("tool", "memory") for s in segments)
             if text or has_tools:
                 if error:
-                    text += "\n\n[جواب ناقص ماند]"
+                    text += "\n\n" + t("api.answer_cut")
                 with db.session() as conn:
                     library.add_message(
                         conn, chat_id, "assistant", text, model=body.model,
@@ -412,7 +440,7 @@ async def _panel_events(chat_id: int, models: list[str], orchestrator: str | Non
                 if not text:
                     continue
                 if a["error"]:
-                    text += "\n\n[جواب ناقص ماند]"
+                    text += "\n\n" + t("api.answer_cut")
                 u = a["usage"] or {}
                 library.add_message(conn, chat_id, "assistant", text, model=a["model"],
                                     prompt_tokens=u.get("prompt_tokens"), completion_tokens=u.get("completion_tokens"),
@@ -460,7 +488,7 @@ class ApprovalIn(BaseModel):
 @router.post("/agent/approvals/{approval_id}")
 def answer_approval(approval_id: str, body: ApprovalIn):
     if not agent_runner.resolve_approval(approval_id, body.approved, body.always):
-        raise HTTPException(404, "این درخواست دیگه منتظر جواب نیست.")
+        raise HTTPException(404, t("api.approval_gone"))
     return {"ok": True}
 
 
@@ -508,13 +536,13 @@ async def handoff_build(chat_id: int, body: HandoffIn):
     if not m["body"]:
         return {"text": "", "tokens": 0, "count": 0, "upto": m["upto"]}
     if not body.model:
-        raise HTTPException(400, "برای خلاصه یه مدل انتخاب کن.")
+        raise HTTPException(400, t("api.pick_summary_model"))
     try:
         brief, usage = await openrouter.complete(body.model, handoff.brief_messages(body.target, m["body"]))
     except openrouter.OpenRouterError as exc:
         raise HTTPException(502, str(exc)) from exc
     if not brief.strip():
-        raise HTTPException(502, "مدل خلاصه‌ای برنگردوند.")
+        raise HTTPException(502, t("api.no_summary"))
     text = handoff.wrap(m["title"], body.target, brief, brief=True)
     return {"text": text, "tokens": estimate_tokens(text), "count": m["count"], "upto": m["upto"], "usage": usage}
 
@@ -525,7 +553,7 @@ def handoff_done(chat_id: int, body: HandoffDoneIn):
         chat = _require_chat(conn, chat_id)
         if body.via == "extension":
             if not (body.text or "").strip():
-                raise HTTPException(400, "متنی برای فرستادن نیست.")
+                raise HTTPException(400, t("api.nothing_to_send"))
             handoff.set_pending(body.text, chat["title"])
         handoff.record(conn, chat_id, body.target, body.format, body.upto, body.via)
         return handoff.info(conn, chat_id)
@@ -623,10 +651,10 @@ async def memory_extract(conv_id: int, body: SummarizeIn):
         raise HTTPException(502, str(exc)) from exc
     notes = memory.parse_extracted(reply)
     if not notes and reply.strip():
-        raise HTTPException(502, "جواب مدل قابل خوندن نبود. یه مدل دیگه امتحان کن.")
+        raise HTTPException(502, t("api.bad_model_reply"))
     with db.session() as conn:
         existing = [n["text"] for n in memory.list_notes(conn, "active")]
-    return {"suggestions": [{"text": t, "known": any(memory._same(t, e) for e in existing)} for t in notes],
+    return {"suggestions": [{"text": s, "known": any(memory._same(s, e) for e in existing)} for s in notes],
             "usage": usage}
 
 
@@ -681,7 +709,7 @@ def extension_handoff_take(x_convohub_client: str | None = Header(None)):
     _require_extension(x_convohub_client)
     p = handoff.take_pending()
     if not p:
-        raise HTTPException(404, "متنی منتظر نیست. توی ConvoHub دوباره «بفرست به افزونه» رو بزن.")
+        raise HTTPException(404, t("api.no_pending_handoff"))
     return {"text": p["text"], "title": p["title"]}
 
 
@@ -705,7 +733,7 @@ def create_backup():
         try:
             made = backup.create(conn, backup.folder(conn))
         except OSError as exc:
-            raise HTTPException(500, f"بکاپ گرفته نشد: {exc}") from exc
+            raise HTTPException(500, t("api.backup_failed", error=exc)) from exc
         return {**_backup_info(conn), "created": made}
 
 
@@ -783,14 +811,14 @@ async def remote_stop():
 
 @router.post("/shutdown")
 def shutdown(request: Request):
-    """Stop the server (the «خاموش» button and the "stop" desktop shortcut).
+    """Stop the server (the shut-down button and the "stop" desktop shortcut).
 
     Only accepted from ConvoHub's own page or from local programs: the origin check in main.py rejects
     POSTs from other websites.
     """
     server = getattr(request.app.state, "server", None)
     if server is None:
-        raise HTTPException(503, "این نسخه از بیرون اجرا شده (مثلاً با uvicorn مستقیم)؛ از همونجا ببندش.")
+        raise HTTPException(503, t("api.external_server"))
     server.should_exit = True
     return {"ok": True}
 
@@ -822,7 +850,7 @@ class KeyIn(BaseModel):
 async def key_save(body: KeyIn):
     key = body.key.strip()
     if any(c.isspace() for c in key) or not key.isascii():
-        raise HTTPException(400, "این شبیه کلید OpenRouter نیست (باید با sk-or- شروع بشه).")
+        raise HTTPException(400, t("api.bad_key"))
     valid, message = await openrouter.check_key(key)
     if valid is False:
         raise HTTPException(400, message)
@@ -840,7 +868,8 @@ def key_delete():
 
 def _mcp_command() -> list[str]:
     if config.FROZEN:
-        return [str(config.APP_DIR / "convohub-mcp.exe")]
+        # Windows: next to ConvoHub.exe. macOS app: Contents/MacOS/convohub-mcp, next to the app's own executable.
+        return [str(config.APP_DIR / ("convohub-mcp.exe" if sys.platform == "win32" else "convohub-mcp"))]
     return ["uv", "run", "--directory", config.ROOT_DIR.as_posix(), "python", "-m", "convohub.mcp_server"]
 
 
@@ -871,6 +900,7 @@ def integrations():
         "extension_dir_exists": config.EXTENSION_DIR.is_dir(),
         "data_dir": str(config.DATA_DIR),
         "installed": config.FROZEN,
+        "platform": osinfo.name(),
     }
 
 
@@ -878,13 +908,26 @@ class OpenFolderIn(BaseModel):
     which: str = Field(pattern="^(extension|data)$")
 
 
+def open_folder_command(path) -> list[str] | None:
+    """How to show a folder in the system's file manager: None on Windows (os.startfile), else an argv."""
+    if sys.platform == "win32":
+        return None
+    return ["open" if sys.platform == "darwin" else "xdg-open", str(path)]
+
+
 @router.post("/open-folder")
 def open_folder(body: OpenFolderIn):
-    """Opens the extension or data folder in Windows Explorer (local only; other sites can't call this)."""
+    """Opens the extension or data folder in Explorer / Finder (local only; other sites can't call this)."""
     path = config.EXTENSION_DIR if body.which == "extension" else config.DATA_DIR
     if not path.is_dir():
-        raise HTTPException(404, f"این پوشه پیدا نشد: {path}")
-    if sys.platform != "win32":
-        raise HTTPException(400, "فقط روی ویندوز.")
-    os.startfile(path)  # noqa: S606 (fixed, known folder)
+        raise HTTPException(404, t("api.folder_missing", path=path))
+    cmd = open_folder_command(path)
+    if cmd is None:
+        os.startfile(path)  # noqa: S606 (fixed, known folder)
+        return {"ok": True}
+    import subprocess
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=15, check=True)  # fixed, known folder; no shell
+    except (OSError, subprocess.SubprocessError):
+        raise HTTPException(400, t("api.open_folder_failed", path=path)) from None
     return {"ok": True}

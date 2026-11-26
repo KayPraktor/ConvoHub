@@ -2,6 +2,7 @@
 
 Pure Python (no Pillow): shapes are drawn with signed distance functions, which gives smooth edges at
 every size. Run: uv run python tools/make_icon.py
+macOS app icon (build/ConvoHub.icns, made by packaging/build_mac.sh): uv run python tools/make_icon.py --icns PATH
 """
 
 import math
@@ -76,7 +77,27 @@ def ico(images):
     return header + entries + blobs
 
 
+ICNS_TYPES = [  # (type, pixel size): PNG-compressed entries, the same set Apple's iconutil writes
+    (b"icp4", 16), (b"icp5", 32), (b"ic11", 32), (b"icp6", 64), (b"ic12", 64), (b"ic07", 128),
+    (b"ic13", 256), (b"ic08", 256), (b"ic14", 512), (b"ic09", 512), (b"ic10", 1024),
+]
+
+
+def icns():
+    """macOS .icns (the app icon of ConvoHub.app), drawn at every size up to 1024 px."""
+    rendered = {s: render(s) for s in sorted({s for _, s in ICNS_TYPES})}
+    body = b"".join(kind + struct.pack(">I", 8 + len(rendered[s])) + rendered[s] for kind, s in ICNS_TYPES)
+    return b"icns" + struct.pack(">I", 8 + len(body)) + body
+
+
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) == 3 and sys.argv[1] == "--icns":  # used by packaging/build_mac.sh; doesn't touch static/
+        target = Path(sys.argv[2])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(icns())
+        print("wrote", target)
+        raise SystemExit(0)
     images = [(s, render(s)) for s in (16, 24, 32, 48, 64, 128, 256)]
     (OUT / "icon.ico").write_bytes(ico(images))
     (OUT / "icon.png").write_bytes(dict(images)[256])

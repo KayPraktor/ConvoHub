@@ -23,7 +23,7 @@ async function api(path, opts = {}) {
   }
   const res = await fetch("/api" + path, init);
   if (!res.ok) {
-    let msg = `خطا (${res.status})`;
+    let msg = t("common.error_status", { status: res.status });
     try {
       const body = await res.json();
       if (typeof body.detail === "string") msg = body.detail;
@@ -33,9 +33,13 @@ async function api(path, opts = {}) {
   return res.json();
 }
 
-const fa = (n) => Number(n || 0).toLocaleString("fa-IR");
-const SOURCE_NAMES = { gemini: "Gemini", claude: "Claude", grok: "Grok", chatgpt: "ChatGPT", native: "اینجا", other: "دیگه" };
-const METHOD_NAMES = { paste: "paste", link: "لینک", file: "فایل", extension: "افزونه", native: "" };
+// Numbers in the interface language's digits (the name is historical: it formats for I18N.locale).
+const fa = (n) => Number(n || 0).toLocaleString(I18N.locale);
+// Counted phrases: English needs singular and plural, so such texts have "key.one" and "key.other"
+// (in Persian both are the same). {n} is the formatted number.
+const tn = (key, n, vars = {}) => t(`${key}.${Number(n) === 1 ? "one" : "other"}`, { n: fa(n), ...vars });
+const SOURCE_NAMES = { gemini: "Gemini", claude: "Claude", grok: "Grok", chatgpt: "ChatGPT", native: t("source.native"), other: t("source.other") };
+const METHOD_NAMES = { paste: "paste", link: t("method.link"), file: t("method.file"), extension: t("method.extension"), native: "" };
 // Line icons from the sprite at the top of index.html (they take the text colour).
 function icon(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -51,12 +55,12 @@ const badge = (source) => el("span", { class: `badge ${source}` }, SOURCE_NAMES[
 function fmtDate(s) {
   if (!s) return "";
   const d = new Date(s.replace(" ", "T") + "Z");
-  return d.toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" });
+  return d.toLocaleString(I18N.locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function fmtCost(usd) {
   if (usd === null || usd === undefined) return "";
-  if (usd === 0) return "رایگان";
+  if (usd === 0) return t("cost.free");
   if (usd < 0.001) return "$" + usd.toFixed(5);
   return "$" + usd.toFixed(usd < 0.1 ? 4 : 3);
 }
@@ -92,7 +96,7 @@ function renderMarkdown(src) {
         flushPara();
         if (list !== "ul") { flushList(); html += "<ul>"; list = "ul"; }
         html += `<li>${inline(m[1])}</li>`;
-      } else if ((m = raw.match(/^\s*[\d۰-۹]+[.)]\s+(.*)$/))) {
+      } else if ((m = raw.match(/^\s*[\d\u06F0-\u06F9]+[.)]\s+(.*)$/))) { // also Persian digits
         flushPara();
         if (list !== "ol") { flushList(); html += "<ol>"; list = "ol"; }
         html += `<li>${inline(m[1])}</li>`;
@@ -125,7 +129,7 @@ function renderMarkdown(src) {
 // Native alert/confirm/prompt can be silently blocked (e.g. in an embedded browser), which made delete and
 // rename do nothing. These draw the dialog inside the page instead.
 
-function uiDialog({ message, input = null, ok = "باشه", cancel = "انصراف", danger = false }) {
+function uiDialog({ message, input = null, ok = t("common.ok"), cancel = t("common.cancel"), danger = false }) {
   const dlg = $("#ui-dialog");
   const field = $("#ui-input");
   const okBtn = $("#ui-ok");
@@ -153,7 +157,7 @@ function uiDialog({ message, input = null, ok = "باشه", cancel = "انصرا
   });
 }
 const notify = (message) => uiDialog({ message, cancel: null });
-const askConfirm = (message, ok = "باشه", danger = false) => uiDialog({ message, ok, danger });
+const askConfirm = (message, ok = t("common.ok"), danger = false) => uiDialog({ message, ok, danger });
 const askText = (message, value = "") => uiDialog({ message, input: value });
 
 // ---------- state ----------
@@ -182,14 +186,14 @@ function renderList(items, isSearch) {
   const convs = items.filter((c) => c.source !== "native");
   const item = (c) => {
     const del = el("button", {
-      class: "item-del", type: "button", title: "حذف",
+      class: "item-del", type: "button", title: t("common.delete"),
       onclick: (e) => { e.stopPropagation(); deleteConv(c).catch(showFatal); },
     }, icon("trash"));
     const li = el("li", { onclick: () => (c.source === "native" ? openChat(c.id) : openConversation(c.id)) },
-      el("span", { class: "item-title", title: c.title }, c.title),
+      el("span", { class: "item-title", title: c.title, dir: "auto" }, c.title),
       el("span", { class: "item-meta" },
         c.source !== "native" ? badge(c.source) : null,
-        c.source !== "native" ? `${fa(Math.round(c.chars / 1000))} هزار حرف` : fmtDate(c.updated_at)),
+        c.source !== "native" ? (c.chars < 1000 ? t("list.chars", { n: fa(c.chars) }) : t("list.chars_k", { n: fa(Math.round(c.chars / 1000)) })) : fmtDate(c.updated_at)),
       c.snippet ? el("span", { class: "snippet" }, c.snippet) : null,
       del);
     if (state.current && state.current.id === c.id) li.classList.add("active");
@@ -200,15 +204,15 @@ function renderList(items, isSearch) {
     lists.append(arr.length ? el("ul", {}, arr.map(item)) : empty);
   };
   if (isSearch && !items.length) {
-    lists.append(el("div", { class: "side-empty" }, "چیزی پیدا نشد. یه کلمه‌ی دیگه امتحان کن."));
+    lists.append(el("div", { class: "side-empty" }, t("list.no_results")));
     return;
   }
-  section("گفتگوهای من", chats, el("div", { class: "side-empty" },
-    "هنوز گفتگویی نداری. یه گفتگو بساز و مکالمه‌های کتابخونه رو بهش مرجع بده.",
-    el("div", {}, el("button", { onclick: () => newChat().catch(showFatal) }, "+ گفتگوی جدید"))));
-  section("کتابخونه", convs, el("div", { class: "side-empty" },
-    "کتابخونه خالیه. چت‌هات رو با paste، فایل، لینک share یا افزونه‌ی مرورگر بیار اینجا.",
-    el("div", {}, el("button", { onclick: () => $("#btn-import").click() }, "+ ایمپورت مکالمه"))));
+  section(t("list.my_chats"), chats, el("div", { class: "side-empty" },
+    t("list.chats_empty"),
+    el("div", {}, el("button", { onclick: () => newChat().catch(showFatal) }, t("side.new_chat")))));
+  section(t("list.library"), convs, el("div", { class: "side-empty" },
+    t("list.library_empty"),
+    el("div", {}, el("button", { onclick: () => $("#btn-import").click() }, t("side.import")))));
 }
 
 // What the main area shows when nothing is open: the next steps, depending on what exists already.
@@ -219,18 +223,18 @@ function showWelcome() {
   const step = (n, title, text, done) => el("li", {},
     el("span", { class: "n" }, done ? "✓" : fa(n)), el("div", {}, el("b", {}, title), el("span", {}, text)));
   $("#view").replaceChildren(el("div", { class: "scroll" }, el("div", { class: "welcome" },
-    el("h2", {}, "سلام!"),
-    el("p", {}, "همه‌ی مکالمه‌هات با هوش‌های مختلف، یه جا و با هر مدلی که بخوای."),
+    el("h2", {}, t("welcome.hello")),
+    el("p", {}, t("welcome.lead")),
     el("ol", { class: "steps" },
-      step(1, "کلید OpenRouter رو وارد کن", "ConvoHub از OpenRouter برای حرف زدن با مدل‌ها استفاده می‌کنه. کلید فقط روی همین کامپیوتر می‌مونه.", hasKey),
-      step(2, "مکالمه‌هات رو بیار", "از Gemini، ChatGPT، Claude یا Grok — با paste، فایل، لینک share یا افزونه‌ی مرورگر.", hasLibrary),
-      step(3, "یه گفتگوی جدید بساز", "مکالمه‌هایی که مدل باید ببینه رو به‌عنوان مرجع تیک بزن.", hasChat),
-      step(4, "بپرس", "یه مدل انتخاب کن و سؤالت رو بنویس. برای کار روی فایل‌ها حالت ایجنت رو روشن کن.", false)),
+      step(1, t("welcome.step1_title"), t("welcome.step1_text"), hasKey),
+      step(2, t("welcome.step2_title"), t("welcome.step2_text"), hasLibrary),
+      step(3, t("welcome.step3_title"), t("welcome.step3_text"), hasChat),
+      step(4, t("welcome.step4_title"), t("welcome.step4_text"), false)),
     el("div", { class: "cta" },
-      hasKey ? null : el("button", { class: "primary", onclick: openKeyDialog }, "وارد کردن کلید"),
-      el("button", { class: hasKey && !hasLibrary ? "primary" : "", onclick: () => $("#btn-import").click() }, "+ ایمپورت مکالمه"),
-      el("button", { class: hasKey && hasLibrary ? "primary" : "", onclick: () => newChat().catch(showFatal) }, "+ گفتگوی جدید"),
-      el("button", { onclick: openConnect }, "افزونه و اتصال")))));
+      hasKey ? null : el("button", { class: "primary", onclick: openKeyDialog }, t("welcome.enter_key")),
+      el("button", { class: hasKey && !hasLibrary ? "primary" : "", onclick: () => $("#btn-import").click() }, t("side.import")),
+      el("button", { class: hasKey && hasLibrary ? "primary" : "", onclick: () => newChat().catch(showFatal) }, t("side.new_chat")),
+      el("button", { onclick: openConnect }, t("welcome.connect"))))));
 }
 
 let searchTimer;
@@ -255,35 +259,34 @@ async function openConversation(id) {
   const view = $("#view");
   view.innerHTML = "";
 
-  const title = el("h1", { title: "برای تغییر نام کلیک کن", onclick: () => renameConv(conv) }, conv.title);
+  const title = el("h1", { title: t("common.click_to_rename"), onclick: () => renameConv(conv) }, conv.title);
   const actions = el("div", { class: "actions" },
-    el("button", { class: "primary", onclick: () => newChat([{ id: conv.id, use_summary: false }]) }, "گفتگو با این مکالمه"),
-    el("button", { onclick: () => renameConv(conv) }, "تغییر نام"),
-    conv.import_method === "link" ? el("button", { onclick: (e) => refreshLink(conv, e.target) }, "دوباره بخون") : null,
-    el("button", { onclick: (e) => summarize(conv, e.target) }, conv.summary ? "خلاصه‌ی دوباره" : "ساختن خلاصه"),
-    el("button", { onclick: (e) => extractMemory(conv, e.currentTarget), title: "یه مدل نکته‌های ماندگار درباره‌ی تو رو از این مکالمه درمیاره؛ خودت انتخاب می‌کنی کدوم‌ها توی حافظه بمونن" },
-      icon("memory"), "نکته‌ها برای حافظه"),
-    el("button", { class: "danger", onclick: () => deleteConv(conv) }, "حذف"));
+    el("button", { class: "primary", onclick: () => newChat([{ id: conv.id, use_summary: false }]) }, t("conv.chat_with")),
+    el("button", { onclick: () => renameConv(conv) }, t("common.rename")),
+    conv.import_method === "link" ? el("button", { onclick: (e) => refreshLink(conv, e.target) }, t("conv.reread")) : null,
+    el("button", { onclick: (e) => summarize(conv, e.target) }, conv.summary ? t("conv.resummarize") : t("conv.summarize")),
+    el("button", { onclick: (e) => extractMemory(conv, e.currentTarget), title: t("conv.memory_title") },
+      icon("memory"), t("conv.memory_btn")),
+    el("button", { class: "danger", onclick: () => deleteConv(conv) }, t("common.delete")));
 
   const meta = el("div", { class: "meta" },
     badge(conv.source),
-    `ورود با ${METHOD_NAMES[conv.import_method] || conv.import_method} · ${fmtDate(conv.created_at)}`,
-    conv.updated_at !== conv.created_at ? ` · به‌روزرسانی ${fmtDate(conv.updated_at)}` : "",
-    ` · ${fa(conv.raw_text.length)} حرف · حدود ${fa(conv.tokens)} توکن`,
+    t("conv.meta_import", { method: METHOD_NAMES[conv.import_method] || conv.import_method, date: fmtDate(conv.created_at) }),
+    conv.updated_at !== conv.created_at ? t("conv.meta_updated", { date: fmtDate(conv.updated_at) }) : "",
+    t("conv.meta_size", { chars: fa(conv.raw_text.length), tokens: fa(conv.tokens) }),
     conv.source_url ? el("div", { dir: "ltr" }, el("a", { href: conv.source_url, target: "_blank", rel: "noreferrer" }, conv.source_url)) : null);
 
   const body = el("div", { class: "scroll" }, meta);
   if (conv.import_method === "link") {
     body.append(el("div", { class: "notice" },
-      "یادت باشه لینک share رو هر کی داشته باشه می‌بینه. اگه دیگه لازمش نداری، از خود سایت پاکش کن؛ متن اینجا می‌مونه."));
+      t("conv.link_notice")));
   }
   if (conv.import_method === "extension") {
-    body.append(el("div", { class: "meta" },
-      "این مکالمه با افزونه اومده. هر وقت صفحه‌ش رو توی مرورگر باز کنی، پیام‌های جدید خودکار اضافه میشن."));
+    body.append(el("div", { class: "meta" }, t("conv.ext_note")));
   }
   if (conv.summary) {
     const det = el("details", { class: "summary" },
-      el("summary", {}, `خلاصه (${fa(conv.summary_tokens)} توکن، با ${conv.summary_model})`),
+      el("summary", {}, t("conv.summary_head", { tokens: fa(conv.summary_tokens), model: conv.summary_model })),
       el("div", { class: "msg" }));
     det.lastChild.innerHTML = renderMarkdown(conv.summary);
     body.append(det);
@@ -294,15 +297,15 @@ async function openConversation(id) {
 }
 
 async function renameConv(conv) {
-  const t = await askText("عنوان جدید:", conv.title);
-  if (!t || !t.trim() || t === conv.title) return;
-  await api(`/conversations/${conv.id}`, { method: "PATCH", json: { title: t.trim() } });
+  const txt = await askText(t("conv.rename_prompt"), conv.title);
+  if (!txt || !txt.trim() || txt === conv.title) return;
+  await api(`/conversations/${conv.id}`, { method: "PATCH", json: { title: txt.trim() } });
   conv.source === "native" ? openChat(conv.id) : openConversation(conv.id);
 }
 
 async function deleteConv(conv) {
-  const what = conv.source === "native" ? "این گفتگو" : "این مکالمه";
-  if (!(await askConfirm(`${what} برای همیشه پاک بشه؟\n«${conv.title}»`, "پاک کن", true))) return;
+  const question = conv.source === "native" ? "conv.delete_chat_confirm" : "conv.delete_conv_confirm";
+  if (!(await askConfirm(t(question, { title: conv.title }), t("common.delete_ok"), true))) return;
   await api(`/conversations/${conv.id}`, { method: "DELETE" });
   if (state.current && state.current.id === conv.id) {
     stopStreaming();
@@ -314,30 +317,30 @@ async function deleteConv(conv) {
 
 async function refreshLink(conv, btn) {
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> در حال خوندن…';
+  btn.replaceChildren(el("span", { class: "spinner" }), " " + t("conv.reading"));
   try {
     await api(`/conversations/${conv.id}/refresh`, { method: "POST" });
     openConversation(conv.id);
   } catch (err) {
     notify(err.message);
     btn.disabled = false;
-    btn.textContent = "دوباره بخون";
+    btn.textContent = t("conv.reread");
   }
 }
 
 async function summarize(conv, btn) {
   const model = store.get("model");
-  if (!model) { notify("اول توی یه گفتگو یه مدل انتخاب کن؛ خلاصه با همون مدل ساخته میشه."); return; }
-  if (!(await askConfirm(`خلاصه با مدل ${model} ساخته بشه؟ کل متن (حدود ${fa(conv.tokens)} توکن) یه بار فرستاده میشه.`, "بساز"))) return;
+  if (!model) { notify(t("conv.need_model_summary")); return; }
+  if (!(await askConfirm(t("conv.summary_confirm", { model, tokens: fa(conv.tokens) }), t("conv.summary_ok")))) return;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> در حال خلاصه‌سازی…';
+  btn.replaceChildren(el("span", { class: "spinner" }), " " + t("conv.summarizing"));
   try {
     await api(`/conversations/${conv.id}/summarize`, { method: "POST", json: { model } });
     openConversation(conv.id);
   } catch (err) {
     notify(err.message);
     btn.disabled = false;
-    btn.textContent = "ساختن خلاصه";
+    btn.textContent = t("conv.summarize");
   }
 }
 
@@ -376,7 +379,7 @@ async function openChat(id) {
   view.innerHTML = "";
 
   const modelInput = el("input", {
-    type: "text", list: "models-dl", placeholder: "مدل (مثلاً google/gemini-…)",
+    type: "text", list: "models-dl", placeholder: t("chat.model_placeholder"),
     value: store.get("model") || chat.model || "", spellcheck: "false",
   });
   modelInput.addEventListener("change", () => {
@@ -385,7 +388,7 @@ async function openChat(id) {
     updateEstimate();
   });
 
-  const titleEl = el("h1", { title: "برای تغییر نام کلیک کن", onclick: () => renameConv(chat) }, chat.title);
+  const titleEl = el("h1", { title: t("common.click_to_rename"), onclick: () => renameConv(chat) }, chat.title);
 
   // Agent mode is remembered per chat in this browser.
   const agentKey = `agent:${id}`;
@@ -400,8 +403,8 @@ async function openChat(id) {
     try {
       const s = await api("/agent/settings");
       const m = state.models.find((x) => x.id === modelInput.value.trim());
-      if (!s.allowed_folders.length) agentWarn.textContent = "⚠ هنوز پوشه‌ای مجاز نیست (تنظیمات ایجنت)";
-      else if (m && !m.tools) agentWarn.textContent = "⚠ این مدل ابزار پشتیبانی نمی‌کنه";
+      if (!s.allowed_folders.length) agentWarn.textContent = t("chat.warn_no_folders");
+      else if (m && !m.tools) agentWarn.textContent = t("chat.warn_no_tools");
     } catch {}
   };
   agentToggle.addEventListener("change", () => {
@@ -426,36 +429,36 @@ async function openChat(id) {
   const header = el("div", { class: "view-header" },
     titleEl,
     el("div", { class: "model-picker" }, modelInput),
-    el("label", { class: "agent-toggle", for: `agent-${id}`, title: "دیدن و خوندن پوشه‌های مجاز همیشه فعاله. با این کلید، مدل (هر بار با اجازه‌ی تو) فایل می‌نویسه، دستور اجرا می‌کنه یا حذف می‌کنه و به سرورهای MCP وصل میشه." },
-      agentToggle, "حالت ایجنت"),
-    el("label", { class: "memory-toggle", for: `mem-${id}`, title: "یادداشت‌های حافظه‌ات با پیام‌های این گفتگو فرستاده بشن" },
-      memoryToggle, "حافظه"),
+    el("label", { class: "agent-toggle", for: `agent-${id}`, title: t("chat.agent_title") },
+      agentToggle, t("chat.agent_mode")),
+    el("label", { class: "memory-toggle", for: `mem-${id}`, title: t("chat.memory_title") },
+      memoryToggle, t("chat.memory")),
     agentWarn,
     el("div", { class: "actions" },
-      el("button", { onclick: () => openHandoff(id, () => modelInput.value.trim()), title: "این گفتگو رو ببر به چت اصلی (مثلاً Gemini) یا یه چت‌بات دیگه" }, icon("share"), "ادامه در جای دیگه"),
-      el("button", { onclick: () => showAgentLog(id) }, "لاگ ایجنت"),
-      el("button", { class: "danger", onclick: () => deleteConv(chat) }, "حذف")));
+      el("button", { onclick: () => openHandoff(id, () => modelInput.value.trim()), title: t("chat.handoff_title") }, icon("share"), t("chat.handoff")),
+      el("button", { onclick: () => showAgentLog(id) }, t("chat.agent_log")),
+      el("button", { class: "danger", onclick: () => deleteConv(chat) }, t("common.delete"))));
   header.classList.toggle("agent-on", agentToggle.checked);
   refreshAgentWarn();
 
   const contextBar = el("div", { class: "context-bar" });
   const renderContext = (items) => {
     contextBar.innerHTML = "";
-    contextBar.append(el("span", {}, "مرجع‌ها:"));
-    if (!items.length) contextBar.append(el("span", { class: "hint" }, "هیچی (فقط چت ساده)"));
+    contextBar.append(el("span", {}, t("chat.refs")));
+    if (!items.length) contextBar.append(el("span", { class: "hint" }, t("chat.refs_none")));
     for (const it of items) {
-      const sel = el("select", { title: "کل متن یا خلاصه" },
-        el("option", { value: "0" }, "کامل"),
-        el("option", { value: "1", disabled: !it.has_summary }, it.has_summary ? "خلاصه" : "خلاصه (نساخته)"));
+      const sel = el("select", { title: t("chat.ref_mode_title") },
+        el("option", { value: "0" }, t("chat.ref_full")),
+        el("option", { value: "1", disabled: !it.has_summary }, it.has_summary ? t("chat.ref_summary") : t("chat.ref_summary_none")));
       sel.value = it.use_summary ? "1" : "0";
       sel.addEventListener("change", () => {
         it.use_summary = sel.value === "1";
         saveContext(items);
       });
       contextBar.append(el("span", { class: "chip" }, badge(it.source), it.title, sel,
-        el("button", { class: "link", title: "برداشتن", onclick: () => saveContext(items.filter((x) => x !== it)) }, "×")));
+        el("button", { class: "link", title: t("common.remove"), onclick: () => saveContext(items.filter((x) => x !== it)) }, "×")));
     }
-    contextBar.append(el("button", { onclick: () => pickContext(items) }, "+ انتخاب مکالمه‌ها"));
+    contextBar.append(el("button", { onclick: () => pickContext(items) }, t("chat.pick_refs")));
   };
   const saveContext = async (items) => {
     const res = await api(`/chats/${id}/context`, {
@@ -484,7 +487,7 @@ async function openChat(id) {
         });
         list.append(el("li", {}, cb, el("label", { for: `ctx-${c.id}` }, badge(c.source), c.title)));
       }
-      if (!list.children.length) list.append(el("li", { class: "hint" }, "مکالمه‌ای نیست؛ اول یکی ایمپورت کن."));
+      if (!list.children.length) list.append(el("li", { class: "hint" }, t("chat.pick_empty")));
     };
     $("#context-filter").value = "";
     $("#context-filter").oninput = renderOptions;
@@ -509,16 +512,16 @@ async function openChat(id) {
   }
   if (!messages.length) {
     list.append(el("div", { class: "chat-empty empty" },
-      el("h3", {}, "از کجا شروع کنیم؟"),
-      el("div", {}, "این گفتگو هنوز خالیه."),
+      el("h3", {}, t("chat.empty_title")),
+      el("div", {}, t("chat.empty_text")),
       el("div", { class: "tips" },
-        el("div", { class: "tip" }, "از «+ انتخاب مکالمه‌ها» بالا، مکالمه‌هایی که مدل باید ببینه رو انتخاب کن."),
-        el("div", { class: "tip" }, "بالا یه مدل بنویس یا از لیست انتخاب کن (مثلاً google/gemini-…)."),
-        el("div", { class: "tip" }, "برای ساختن یا تغییر فایل، «حالت ایجنت» رو روشن کن. دیدن پوشه‌های مجاز همیشه فعاله."))));
+        el("div", { class: "tip" }, t("chat.tip1")),
+        el("div", { class: "tip" }, t("chat.tip2")),
+        el("div", { class: "tip" }, t("chat.tip3")))));
   }
 
-  const input = el("textarea", { rows: 3, placeholder: "پیامت رو بنویس… (Ctrl+Enter برای ارسال)" });
-  const sendBtn = el("button", { class: "primary" }, "ارسال");
+  const input = el("textarea", { rows: 3, placeholder: t("chat.input_placeholder") });
+  const sendBtn = el("button", { class: "primary" }, t("chat.send"));
   const estimateLine = el("div", { class: "estimate" });
 
   let estTimer;
@@ -533,14 +536,14 @@ async function openChat(id) {
           json: { draft: input.value, model: modelInput.value.trim() || null, models: panelCfg.extra, memory: memoryToggle.checked },
         });
         if (seq !== estSeq) return; // a newer estimate is on its way
-        const parts = [`ورودی هر پیام ≈ ${fa(est.total_tokens)} توکن`];
-        if (est.system_tokens > 500) parts.push(`(مرجع‌ها ${fa(est.system_tokens - (est.memory_tokens || 0))}، تاریخچه ${fa(est.history_tokens)})`);
-        if (est.memory_notes) parts.push(`حافظه: ${fa(est.memory_notes)} یادداشت ≈ ${fa(est.memory_tokens)} توکن`);
-        if (est.models_count) parts.push(`× ${fa(est.models_count)} مدل`);
-        if (est.input_cost !== undefined) parts.push(`≈ ${fmtCost(est.input_cost)} هزینه‌ی ورودی${panelCfg.orchestrator && est.models_count ? " + جمع‌بندی" : ""}`);
-        if (est.model && est.model.context_length) parts.push(`سقف مدل ${fa(Math.round(est.model.context_length / 1000))}K`);
-        if (modelInput.value.trim() && !est.model && state.models.length) parts.push("⚠ این مدل توی لیست OpenRouter نیست");
-        if (est.over_context) parts.push("⚠ از سقف کانتکست مدل بیشتره؛ خلاصه رو انتخاب کن");
+        const parts = [t("est.input", { tokens: fa(est.total_tokens) })];
+        if (est.system_tokens > 500) parts.push(t("est.breakdown", { refs: fa(est.system_tokens - (est.memory_tokens || 0)), history: fa(est.history_tokens) }));
+        if (est.memory_notes) parts.push(tn("est.memory", est.memory_notes, { tokens: fa(est.memory_tokens) }));
+        if (est.models_count) parts.push(t("est.models", { n: fa(est.models_count) }));
+        if (est.input_cost !== undefined) parts.push(t("est.cost", { cost: fmtCost(est.input_cost) }) + (panelCfg.orchestrator && est.models_count ? t("est.plus_synth") : ""));
+        if (est.model && est.model.context_length) parts.push(t("est.limit", { k: fa(Math.round(est.model.context_length / 1000)) }));
+        if (modelInput.value.trim() && !est.model && state.models.length) parts.push(t("est.not_listed"));
+        if (est.over_context) parts.push(t("est.over"));
         estimateLine.textContent = parts.join(" · ");
         estimateLine.classList.toggle("warn", !!est.over_context);
       } catch (err) {
@@ -558,7 +561,7 @@ async function openChat(id) {
     const content = input.value.trim();
     const model = modelInput.value.trim();
     if (!content) return;
-    if (!model) { notify("اول یه مدل انتخاب کن."); modelInput.focus(); return; }
+    if (!model) { notify(t("chat.need_model")); modelInput.focus(); return; }
     store.set("model", model);
     if (panelCfg.extra.length) return sendPanel(content, model);
     const placeholder = list.querySelector(".empty");
@@ -574,7 +577,7 @@ async function openChat(id) {
     const agentMode = agentToggle.checked;
     const ctrl = new AbortController();
     state.streaming = ctrl;
-    sendBtn.textContent = "توقف";
+    sendBtn.textContent = t("chat.stop");
     let usage = null;
     let error = null;
 
@@ -629,7 +632,7 @@ async function openChat(id) {
         body: JSON.stringify({ content, model, agent: agentMode, memory: memoryToggle.checked }), signal: ctrl.signal,
       });
       if (!res.ok) {
-        let msg = `خطا (${res.status})`;
+        let msg = t("common.error_status", { status: res.status });
         try { msg = (await res.json()).detail || msg; } catch {}
         throw new Error(msg);
       }
@@ -659,7 +662,7 @@ async function openChat(id) {
       if (err.name !== "AbortError") error = err.message;
     } finally {
       state.streaming = null;
-      sendBtn.textContent = "ارسال";
+      sendBtn.textContent = t("chat.send");
     }
     flushText();
     spinner.remove();
@@ -694,7 +697,7 @@ async function openChat(id) {
     renderPanelBar();
     updateEstimate();
   };
-  const modelField = (value, onChange, placeholder = "مدل") => {
+  const modelField = (value, onChange, placeholder = t("panel.model")) => {
     const f = el("input", { type: "text", list: "models-dl", value, placeholder, spellcheck: "false", class: "model-field" });
     f.addEventListener("change", () => onChange(f.value.trim()));
     return f;
@@ -704,25 +707,25 @@ async function openChat(id) {
     panelBar.innerHTML = "";
     panelBar.classList.toggle("on", on);
     agentToggle.disabled = on;
-    agentToggle.parentElement.title = on ? "توی حالت چندمدلی ابزار نداریم؛ برای ایجنت مدل‌های اضافه رو بردار."
+    agentToggle.parentElement.title = on ? t("panel.no_tools")
       : agentToggle.parentElement.dataset.title || agentToggle.parentElement.title;
     if (on) {
-      panelBar.append(el("span", { class: "hint" }, "مدل‌های دیگه:"));
+      panelBar.append(el("span", { class: "hint" }, t("panel.other_models")));
       panelCfg.extra.forEach((m, i) => {
         panelBar.append(el("span", { class: "chip" },
           modelField(m, (v) => { panelCfg.extra[i] = v; savePanel(); }),
-          el("button", { class: "link", title: "برداشتن", onclick: () => { panelCfg.extra.splice(i, 1); savePanel(); } }, "×")));
+          el("button", { class: "link", title: t("common.remove"), onclick: () => { panelCfg.extra.splice(i, 1); savePanel(); } }, "×")));
       });
     }
     if (panelCfg.extra.length < 3) {
       panelBar.append(el("button", { onclick: () => {
         panelCfg.extra.push(""); renderPanelBar();
         panelBar.querySelectorAll(".model-field")[panelCfg.extra.length - 1]?.focus();
-      } }, on ? "+ مدل" : "+ مدل دیگه (چندمدلی)"));
+      } }, on ? t("panel.add") : t("panel.add_first")));
     }
     if (on) {
-      panelBar.append(el("span", { class: "hint sep" }, "جمع‌بندی با:"),
-        modelField(panelCfg.orchestrator, (v) => { panelCfg.orchestrator = v; savePanel(); }, "بدون جمع‌بندی"));
+      panelBar.append(el("span", { class: "hint sep" }, t("panel.synth_with")),
+        modelField(panelCfg.orchestrator, (v) => { panelCfg.orchestrator = v; savePanel(); }, t("panel.no_synth")));
     }
   }
   agentToggle.parentElement.dataset.title = agentToggle.parentElement.title;
@@ -740,7 +743,7 @@ async function openChat(id) {
 
     const ctrl = new AbortController();
     state.streaming = ctrl;
-    sendBtn.textContent = "توقف";
+    sendBtn.textContent = t("chat.stop");
     let lastRender = 0;
     try {
       await readSSE(`/api/chats/${id}/messages`,
@@ -754,7 +757,7 @@ async function openChat(id) {
       if (err.name !== "AbortError") pv.fail(err.message);
     } finally {
       state.streaming = null;
-      sendBtn.textContent = "ارسال";
+      sendBtn.textContent = t("chat.send");
     }
     pv.flush();
     pv.finish();
@@ -778,17 +781,21 @@ function usageEl(m) {
   return el("div", { class: "msg-meta" }, bits.join(" · "));
 }
 
+// The server appends one of these to a saved reply that was cut off (messages.py "api.answer_cut", in
+// Persian as older chats have it, or in English).
+const INCOMPLETE_MARKS = ["[\u062C\u0648\u0627\u0628 \u0646\u0627\u0642\u0635 \u0645\u0627\u0646\u062F]", "[Answer incomplete]"];
+
 function messageEl(m) {
-  if (m.role === "user") return el("div", { class: "msg user" }, m.content);
+  if (m.role === "user") return el("div", { class: "msg user", dir: "auto" }, m.content);
   const div = el("div", { class: "msg assistant" });
   if (m.tool_trace && m.tool_trace.length) {
     let group = null;
     for (const seg of m.tool_trace) {
       if (seg.type === "text") {
         group = null;
-        const t = el("div", { class: "seg-text" });
-        t.innerHTML = renderMarkdown(seg.text);
-        div.append(t);
+        const segEl = el("div", { class: "seg-text" });
+        segEl.innerHTML = renderMarkdown(seg.text);
+        div.append(segEl);
       } else if (seg.type === "memory") {
         group = null;
         div.append(memoryCard({ id: seg.memory_id, text: seg.text }));
@@ -798,7 +805,7 @@ function messageEl(m) {
         step.setResult({ status: seg.status, approval: seg.approval, preview: seg.preview });
       }
     }
-    if (m.content && m.content.endsWith("[جواب ناقص ماند]")) div.append(el("div", { class: "notice" }, "جواب ناقص ماند"));
+    if (m.content && INCOMPLETE_MARKS.some((s) => m.content.endsWith(s))) div.append(el("div", { class: "notice" }, t("chat.incomplete")));
   } else {
     div.innerHTML = renderMarkdown(m.content);
   }
@@ -813,7 +820,7 @@ async function readSSE(url, body, signal, onEvent) {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal,
   });
   if (!res.ok) {
-    let msg = `خطا (${res.status})`;
+    let msg = t("common.error_status", { status: res.status });
     try { msg = (await res.json()).detail || msg; } catch {}
     throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
   }
@@ -858,7 +865,7 @@ function panelView(models, orchestrator, stored = null) {
   const node = el("div", { class: "panel" }, grid);
   let synth = null;
   const makeSynth = (model) => {
-    synth = makeBox("panel-synth", el("div", { class: "panel-head" }, "جمع‌بندی · ", el("span", { dir: "ltr" }, model)));
+    synth = makeBox("panel-synth", el("div", { class: "panel-head" }, t("panel.synth_head"), el("span", { dir: "ltr" }, model)));
     node.append(synth.node);
   };
   const slot = (s) => (s === "s" ? synth : cols[s]);
@@ -873,7 +880,7 @@ function panelView(models, orchestrator, stored = null) {
       box.body.innerHTML = renderMarkdown(m.content);
       box.meta.textContent = usageText(m);
     }
-    for (const c of cols) if (!c.text) c.body.append(el("span", { class: "hint" }, "(جوابی ذخیره نشد)"));
+    for (const c of cols) if (!c.text) c.body.append(el("span", { class: "hint" }, t("panel.not_saved")));
   }
 
   return {
@@ -891,7 +898,7 @@ function panelView(models, orchestrator, stored = null) {
         b.meta.textContent = usageText(ev.usage);
         if (ev.error) b.meta.append(el("div", { class: "error" }, "⚠ " + ev.error));
       } else if (ev.type === "done" && ev.usage && ev.usage.cost) {
-        node.append(el("div", { class: "msg-meta" }, `جمع: ${usageText(ev.usage)}`));
+        node.append(el("div", { class: "msg-meta" }, t("panel.total", { usage: usageText(ev.usage) })));
       }
     },
     flush() {
@@ -903,7 +910,7 @@ function panelView(models, orchestrator, stored = null) {
     },
     finish() {
       for (const b of [...cols, synth].filter(Boolean)) {
-        if (!b.text) b.body.innerHTML = '<span class="hint">جوابی نیومد</span>';
+        if (!b.text) b.body.replaceChildren(el("span", { class: "hint" }, t("panel.no_answer")));
       }
     },
     fail(msg) { node.append(el("div", { class: "error" }, "⚠ " + msg)); },
@@ -912,15 +919,11 @@ function panelView(models, orchestrator, stored = null) {
 
 // ---------- agent: tool cards, approvals, log, settings ----------
 
-const TOOL_LABELS = {
-  list_allowed_folders: "پوشه‌های مجاز", list_directory: "دیدن پوشه", read_file: "خوندن فایل",
-  find_files: "جستجوی فایل", write_file: "نوشتن فایل", edit_file: "ویرایش فایل",
-  run_command: "اجرای دستور", delete_path: "حذف (به سطل بازیافت)", read_skill: "خوندن skill",
-};
-const STATUS_LABELS = {
-  running: "در حال اجرا…", waiting: "منتظر اجازه‌ی تو", ok: "انجام شد", error: "خطا",
-  denied: "رد شد", blocked: "اجازه نداره", stopped: "متوقف شد",
-};
+const AGENT_TOOLS = ["list_allowed_folders", "list_directory", "read_file", "find_files", "write_file", "edit_file",
+  "run_command", "delete_path", "read_skill"];
+const keyed = (names, prefix) => Object.fromEntries(names.map((k) => [k, t(prefix + k)]));
+const TOOL_LABELS = keyed(AGENT_TOOLS, "tool.");
+const STATUS_LABELS = keyed(["running", "waiting", "ok", "error", "denied", "blocked", "stopped"], "status.");
 
 function argSummary(name, args = {}) {
   if (args.command) return args.command;
@@ -932,7 +935,7 @@ function argSummary(name, args = {}) {
 
 function diffEl(diff) {
   const pre = el("pre", { class: "diff" });
-  const lines = (diff || "(بدون تغییر)").split("\n");
+  const lines = (diff || t("diff.no_change")).split("\n");
   for (const line of lines) {
     const cls = line.startsWith("+") && !line.startsWith("+++") ? "add"
       : line.startsWith("-") && !line.startsWith("---") ? "del" : line.startsWith("@@") ? "hunk" : "";
@@ -941,33 +944,23 @@ function diffEl(diff) {
   // The whole diff is always there (scroll inside the box); this only makes the box taller.
   const added = lines.filter((l) => l.startsWith("+") && !l.startsWith("+++")).length;
   const removed = lines.filter((l) => l.startsWith("-") && !l.startsWith("---")).length;
-  const toggle = el("button", { class: "link", type: "button" }, "نمایش بزرگ‌تر");
+  const toggle = el("button", { class: "link", type: "button" }, t("diff.bigger"));
   toggle.onclick = () => {
     const tall = pre.classList.toggle("tall");
-    toggle.textContent = tall ? "نمایش کوچیک‌تر" : "نمایش بزرگ‌تر";
+    toggle.textContent = tall ? t("diff.smaller") : t("diff.bigger");
   };
   return el("div", { class: "diff-wrap" },
-    el("div", { class: "diff-meta" }, `+${fa(added)} / −${fa(removed)} خط`, lines.length > 15 ? toggle : null),
+    el("div", { class: "diff-meta" }, t("diff.lines", { added: fa(added), removed: fa(removed) }), lines.length > 15 ? toggle : null),
     pre);
 }
 
 // Short verbs for one-line steps, and phrases for the folded group summary.
-const STEP_VERBS = {
-  list_allowed_folders: "پوشه‌های مجاز", list_directory: "دیدن", read_file: "خوندن", find_files: "جستجو",
-  write_file: "نوشتن", edit_file: "ویرایش", run_command: "اجرا", delete_path: "حذف", read_skill: "skill",
-};
+const STEP_VERBS = keyed(AGENT_TOOLS, "verb.");
 const GROUP_PHRASES = {
-  list_allowed_folders: () => "پوشه‌های مجاز رو دید",
-  list_directory: (n) => `${fa(n)} پوشه رو دید`,
-  read_file: (n) => `${fa(n)} فایل خوند`,
-  find_files: (n) => `${fa(n)} بار جستجو کرد`,
-  write_file: (n) => `${fa(n)} فایل نوشت`,
-  edit_file: (n) => `${fa(n)} فایل رو ویرایش کرد`,
-  run_command: (n) => `${fa(n)} دستور اجرا کرد`,
-  delete_path: (n) => `${fa(n)} مورد رو حذف کرد`,
-  read_skill: (n) => `${fa(n)} skill خوند`,
+  list_allowed_folders: () => t("group.list_allowed_folders"),
+  ...Object.fromEntries(AGENT_TOOLS.filter((k) => k !== "list_allowed_folders").map((k) => [k, (n) => tn(`group.${k}`, n)])),
 };
-const PROBLEM_LABELS = { denied: "رد شد", blocked: "اجازه نداشت", error: "خطا", stopped: "متوقف شد" };
+const PROBLEM_LABELS = keyed(["denied", "blocked", "error", "stopped"], "problem.");
 
 function shortPath(p) {
   const parts = String(p).split(/[\\/]+/).filter(Boolean);
@@ -985,7 +978,8 @@ function stepArgs(name, args = {}) {
 // A folded block of consecutive tool steps: one clickable summary line, like Claude Code.
 function toolGroup() {
   const steps = [];
-  const chevron = el("span", { class: "chev" }, "‹");
+  // Points toward the line's end ("›" is mirrored to "‹" in right-to-left text); turns down when open (app.css).
+  const chevron = el("span", { class: "chev" }, "›");
   const summary = el("span", { class: "group-summary" });
   const state = el("span", { class: "group-state" });
   const list = el("div", { class: "group-steps" });
@@ -1006,11 +1000,11 @@ function toolGroup() {
       if (s.status === "waiting") waiting = true;
     }
     summary.textContent = order.map((k) =>
-      k === "mcp" ? `${fa(counts[k])} ابزار MCP صدا زد` : (GROUP_PHRASES[k] || ((n) => `${k} ×${fa(n)}`))(counts[k])).join("، ");
+      k === "mcp" ? tn("group.mcp", counts[k]) : (GROUP_PHRASES[k] || ((n) => `${k} ×${fa(n)}`))(counts[k])).join(t("common.list_sep"));
     state.innerHTML = "";
-    if (waiting) state.append(el("span", { class: "pill waiting" }, "منتظر اجازه‌ی تو"));
+    if (waiting) state.append(el("span", { class: "pill waiting" }, t("status.waiting")));
     else if (running) state.append(el("span", { class: "spinner" }));
-    if (problems) state.append(el("span", { class: "pill problem" }, `${fa(problems)} مورد انجام نشد`));
+    if (problems) state.append(el("span", { class: "pill problem" }, tn("group.problems", problems)));
   };
 
   return {
@@ -1044,7 +1038,7 @@ function toolStep({ name, args, status, onChange, onNeedsAttention }) {
   const setStatus = (s) => {
     current = info.status = s;
     dot.className = `dot ${s}`;
-    flag.textContent = PROBLEM_LABELS[s] || (s === "waiting" ? "منتظر اجازه" : "");
+    flag.textContent = PROBLEM_LABELS[s] || (s === "waiting" ? t("step.waiting") : "");
     flag.className = `step-flag ${s}`;
     onChange();
   };
@@ -1058,31 +1052,28 @@ function toolStep({ name, args, status, onChange, onNeedsAttention }) {
       const p = ev.preview || {};
       const box = el("div", { class: "approval" });
       if (p.kind === "write" || p.kind === "edit") {
-        box.append(el("div", {}, p.exists ? "این تغییر روی فایل اعمال میشه:" : "این فایل ساخته میشه:"),
+        box.append(el("div", {}, p.exists ? t("approve.edit_existing") : t("approve.create")),
           el("div", { class: "path", dir: "ltr" }, p.path), diffEl(p.diff));
       } else if (p.kind === "command") {
         box.append(
-          el("div", { class: "danger-text" },
-            "⚠ این دستور به پوشه‌های مجاز محدود نیست: با همه‌ی دسترسی‌های حساب ویندوزت روی کل سیستم اجرا میشه " +
-            "(می‌تونه هر فایلی رو بخونه، تغییر بده یا پاک کنه، و به اینترنت وصل بشه). فقط پوشه‌ای که توش شروع میشه مجازه."),
+          el("div", { class: "danger-text" }, t("approve.command_warn")),
           el("pre", { dir: "ltr" }, p.command),
-          el("div", { class: "path", dir: "ltr" }, "شروع در: " + p.cwd));
+          el("div", { class: "path", dir: "ltr" }, t("approve.cwd", { cwd: p.cwd })));
       } else if (p.kind === "delete") {
         const isFolder = p.target === "folder";
         box.append(el("div", { class: "danger-text" },
-          `این ${isFolder ? "پوشه" : "فایل"} به سطل بازیافت منتقل میشه:`),
+          isFolder ? t("approve.delete_folder") : t("approve.delete_file")),
           el("div", { class: "path", dir: "ltr" }, p.path),
-          isFolder ? el("div", {}, `شامل ${fa(p.files)} فایل`) : null);
+          isFolder ? el("div", {}, tn("approve.folder_files", p.files)) : null);
       } else if (p.kind === "mcp") {
-        box.append(el("div", {}, `ابزار «${p.tool}» از سرور MCP «${p.server}» با این ورودی:`),
+        box.append(el("div", {}, t("approve.mcp", { tool: p.tool, server: p.server })),
           el("pre", { dir: "ltr" }, JSON.stringify(p.args, null, 2)));
       }
-      const yes = el("button", { class: "primary" }, "اجازه بده");
-      const no = el("button", {}, "رد کن");
+      const yes = el("button", { class: "primary" }, t("approve.yes"));
+      const no = el("button", {}, t("approve.no"));
       // MCP tools: "always allow" this one tool (saved in settings, can be taken back there).
       const always = p.kind === "mcp"
-        ? el("button", { title: `از این به بعد «${p.key}» بدون پرسیدن اجرا میشه؛ از تنظیمات ایجنت پس گرفته میشه.` },
-          "همیشه اجازه بده (فقط این ابزار)")
+        ? el("button", { title: t("approve.always_title", { key: p.key }) }, t("approve.always"))
         : null;
       const buttons = [yes, always, no].filter(Boolean);
       const answer = async (approved, alwaysAllow = false) => {
@@ -1092,7 +1083,7 @@ function toolStep({ name, args, status, onChange, onNeedsAttention }) {
           setStatus(approved ? "running" : "denied");
           box.classList.add("answered");
           box.querySelector(".approval-actions").replaceWith(el("div", { class: "hint" },
-            alwaysAllow ? `✓ همیشه اجازه داری (${p.key})` : approved ? "✓ اجازه دادی" : "✕ رد کردی"));
+            alwaysAllow ? t("approve.done_always", { key: p.key }) : approved ? t("approve.done_yes") : t("approve.done_no")));
         } catch (err) {
           notify(err.message);
           buttons.forEach((b) => (b.disabled = false));
@@ -1119,9 +1110,9 @@ function toolStep({ name, args, status, onChange, onNeedsAttention }) {
 // Shown when the agent tried a folder that isn't allowed: one click adds it to the settings.
 // Only the user can press this; the model can never widen its own access.
 function grantBar(folder) {
-  const btn = el("button", { class: "primary" }, "اجازه‌ی این پوشه رو بده");
+  const btn = el("button", { class: "primary" }, t("grant.btn"));
   const bar = el("div", { class: "grant-bar" },
-    el("span", {}, "این پوشه جزو پوشه‌های مجاز نیست:"),
+    el("span", {}, t("grant.text")),
     el("code", { dir: "ltr" }, folder),
     btn);
   btn.onclick = async () => {
@@ -1129,8 +1120,8 @@ function grantBar(folder) {
     try {
       const s = await api("/agent/settings");
       await api("/agent/settings", { method: "PUT", json: { allowed_folders: [...s.allowed_folders, folder] } });
-      bar.replaceChildren(el("span", {}, "✓ اضافه شد: "), el("code", { dir: "ltr" }, folder),
-        el("span", { class: "hint" }, " — حالا بگو «ادامه بده»."));
+      bar.replaceChildren(el("span", {}, t("grant.added")), el("code", { dir: "ltr" }, folder),
+        el("span", { class: "hint" }, t("grant.continue")));
       window.dispatchEvent(new Event("agent-settings-changed"));
     } catch (err) {
       notify(err.message);
@@ -1148,7 +1139,7 @@ async function showAgentLog(chatId) {
   try {
     const rows = await api(`/chats/${chatId}/agent-log`);
     box.innerHTML = "";
-    if (!rows.length) { box.append(el("div", { class: "hint" }, "توی این گفتگو هنوز ایجنت کاری نکرده.")); return; }
+    if (!rows.length) { box.append(el("div", { class: "hint" }, t("log.empty"))); return; }
     for (const r of rows) {
       box.append(el("details", { class: "log-row" },
         el("summary", {},
@@ -1156,7 +1147,7 @@ async function showAgentLog(chatId) {
           el("span", { class: "tool-name" }, TOOL_LABELS[r.tool] || r.tool),
           el("span", { class: "tool-args", dir: "ltr" }, argSummary(r.tool, r.args)),
           el("span", { class: `tool-status ${r.status}` }, STATUS_LABELS[r.status] || r.status),
-          r.approval !== "auto" ? el("span", { class: "hint" }, r.approval === "approved" ? "(با اجازه)" : "(رد شد)") : null),
+          r.approval !== "auto" ? el("span", { class: "hint" }, r.approval === "approved" ? t("log.approved") : t("log.denied")) : null),
         el("pre", { dir: "auto" }, JSON.stringify(r.args, null, 2) + "\n\n" + (r.result || ""))));
     }
   } catch (err) {
@@ -1187,10 +1178,10 @@ async function openAgentSettings() {
 function renderAlways(keys) {
   const ul = $("#set-always");
   ul.innerHTML = "";
-  if (!keys.length) ul.append(el("li", { class: "hint" }, "هیچی؛ همه‌ی ابزارهای MCP هر بار اجازه می‌گیرن."));
+  if (!keys.length) ul.append(el("li", { class: "hint" }, t("settings.always_none")));
   for (const k of keys) {
     ul.append(el("li", {}, el("span", { dir: "ltr" }, k), " ",
-      el("button", { class: "link", title: "پس گرفتن اجازه", onclick: async () => {
+      el("button", { class: "link", title: t("settings.revoke"), onclick: async () => {
         const s = await api("/agent/settings", { method: "PUT", json: { mcp_always_allow: keys.filter((x) => x !== k) } });
         renderAlways(s.mcp_always_allow);
       } }, "×")));
@@ -1202,7 +1193,7 @@ $("#set-ext-save").addEventListener("click", async () => {
     const s = await api("/settings/extension", { method: "PUT", json: { id: $("#set-ext-id").value.trim() || null } });
     $("#set-ext-id").value = s.paired || "";
     checkExtensionPending();
-    notify(s.paired ? "✓ ID افزونه ذخیره شد." : "اتصال افزونه قطع شد.");
+    notify(s.paired ? t("settings.ext_saved") : t("settings.ext_removed"));
   } catch (err) {
     notify(err.message);
   }
@@ -1216,23 +1207,23 @@ async function checkExtensionPending() {
   bar.hidden = !st.pending;
   if (!st.pending) return;
   bar.replaceChildren(
-    el("div", {}, "یه افزونه می‌خواد به ConvoHub وصل بشه:"),
+    el("div", {}, t("ext.pending_title")),
     el("code", { dir: "ltr" }, st.pending),
-    el("div", { class: "hint" }, "اگه همین الان افزونه‌ی ConvoHub خودت رو امتحان کردی، قبول کن. اگه نه، رد کن."),
+    el("div", { class: "hint" }, t("ext.pending_hint")),
     el("div", { class: "row" },
       el("button", { class: "primary", onclick: async () => {
         await api("/settings/extension", { method: "PUT", json: { id: st.pending } });
         bar.hidden = true;
-        notify("✓ افزونه وصل شد. صفحه‌ی چت رو یه بار refresh کن.");
-      } }, "قبول"),
-      el("button", { onclick: () => { bar.hidden = true; } }, "نه")));
+        notify(t("ext.accepted"));
+      } }, t("ext.accept")),
+      el("button", { onclick: () => { bar.hidden = true; } }, t("ext.decline"))));
 }
 setInterval(checkExtensionPending, 10000);
 
 function renderSkills(skills) {
   const ul = $("#set-skill-list");
   ul.innerHTML = "";
-  if (!skills.length) ul.append(el("li", { class: "hint" }, "skillی پیدا نشد."));
+  if (!skills.length) ul.append(el("li", { class: "hint" }, t("settings.no_skills")));
   for (const s of skills) ul.append(el("li", {}, el("strong", { dir: "ltr" }, s.name), " — ", s.description));
 }
 
@@ -1246,17 +1237,18 @@ function fmtSize(n) {
 
 function renderBackups(info) {
   $("#backup-folder").value = info.default ? "" : info.folder;
-  $("#backup-folder").placeholder = info.default ? info.folder : "D:\\Backups\\ConvoHub";
+  $("#backup-folder").placeholder = info.default ? info.folder
+    : I18N.platform === "darwin" ? "/Users/me/Backups/ConvoHub" : "D:\\Backups\\ConvoHub";
   const ul = $("#backup-list");
   ul.innerHTML = "";
-  if (!info.items.length) ul.append(el("li", { class: "hint" }, "هنوز بکاپی نیست."));
+  if (!info.items.length) ul.append(el("li", { class: "hint" }, t("backup.none")));
   for (const b of info.items) {
     ul.append(el("li", {},
       // backup names use local time (unlike the database's UTC timestamps)
-      el("span", {}, new Date(b.created.replace(" ", "T")).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" })),
-      el("span", { class: "hint" }, b.auto ? "خودکار" : "دستی"),
+      el("span", {}, new Date(b.created.replace(" ", "T")).toLocaleString(I18N.locale, { dateStyle: "medium", timeStyle: "short" })),
+      el("span", { class: "hint" }, b.auto ? t("backup.auto") : t("backup.manual")),
       el("span", { class: "hint" }, fmtSize(b.size)),
-      el("a", { href: `/api/backups/${encodeURIComponent(b.name)}`, download: b.name }, "دانلود")));
+      el("a", { href: `/api/backups/${encodeURIComponent(b.name)}`, download: b.name }, t("backup.download"))));
   }
 }
 
@@ -1275,7 +1267,7 @@ $("#btn-backup").addEventListener("click", openBackups);
 
 // ---------- shutting down ----------
 $("#btn-quit").addEventListener("click", async () => {
-  if (!(await askConfirm("ConvoHub خاموش بشه؟ بعداً با شورتکات دسکتاپ یا start.bat دوباره روشنش کن.", "خاموش کن", true))) return;
+  if (!(await askConfirm(t("quit.confirm"), t("quit.ok"), true))) return;
   stopStreaming();
   try {
     await api("/shutdown", { method: "POST" });
@@ -1284,18 +1276,18 @@ $("#btn-quit").addEventListener("click", async () => {
     return;
   }
   $("#app").replaceChildren(el("div", { class: "welcome" },
-    el("h2", {}, "ConvoHub خاموش شد"),
-    el("p", {}, "این صفحه رو می‌تونی ببندی. برای روشن کردن دوباره، روی شورتکات ConvoHub روی دسکتاپ دوبار کلیک کن.")));
+    el("h2", {}, t("quit.title")),
+    el("p", {}, t("quit.text"))));
 });
 $("#backup-close").addEventListener("click", () => $("#backup-dialog").close());
 $("#backup-now").addEventListener("click", async () => {
   const btn = $("#backup-now");
   btn.disabled = true;
-  $("#backup-msg").textContent = "در حال بکاپ…";
+  $("#backup-msg").textContent = t("backup.running");
   try {
     const res = await api("/backups", { method: "POST" });
     renderBackups(res);
-    $("#backup-msg").textContent = `✓ ذخیره شد (${fa(res.created.conversations)} مکالمه و گفتگو): ${res.created.path}`;
+    $("#backup-msg").textContent = tn("backup.saved", res.created.conversations, { path: res.created.path });
   } catch (err) {
     $("#backup-msg").textContent = "⚠ " + err.message;
   } finally {
@@ -1305,7 +1297,7 @@ $("#backup-now").addEventListener("click", async () => {
 $("#backup-folder-save").addEventListener("click", async () => {
   try {
     renderBackups(await api("/backups/folder", { method: "PUT", json: { folder: $("#backup-folder").value.trim() } }));
-    $("#backup-msg").textContent = "✓ پوشه ذخیره شد.";
+    $("#backup-msg").textContent = t("backup.folder_saved");
   } catch (err) {
     $("#backup-msg").textContent = "⚠ " + err.message;
   }
@@ -1320,7 +1312,7 @@ $("#settings-save").addEventListener("click", async () => {
   const raw = $("#set-mcp").value.trim();
   if (raw) {
     try { mcp = JSON.parse(raw); } catch (e) {
-      errBox.textContent = "JSON تنظیمات MCP درست نیست: " + e.message;
+      errBox.textContent = t("settings.bad_mcp_json", { error: e.message });
       errBox.hidden = false;
       return;
     }
@@ -1379,7 +1371,7 @@ $("#paste-text").addEventListener("input", () => {
     try {
       const p = await api("/import/preview", { method: "POST", json: { text } });
       $("#paste-info").textContent =
-        `${fa(p.chars)} حرف · حدود ${fa(p.tokens)} توکن · منبع: ${SOURCE_NAMES[p.source]}`;
+        t("import.preview", { chars: fa(p.chars), tokens: fa(p.tokens), source: SOURCE_NAMES[p.source] || p.source });
       $("#import-title").placeholder = p.title;
     } catch {}
   }, 300);
@@ -1391,18 +1383,18 @@ $("#import-submit").addEventListener("click", async () => {
   errBox.hidden = true;
   btn.disabled = true;
   const label = btn.textContent;
-  btn.innerHTML = '<span class="spinner"></span> ' + (importTab === "link" ? "در حال خوندن صفحه…" : "ایمپورت…");
+  btn.replaceChildren(el("span", { class: "spinner" }), " " + (importTab === "link" ? t("import.reading_page") : t("import.importing")));
   try {
     let res;
     const title = $("#import-title").value.trim() || null;
     const source = $("#import-source").value || null;
     if (importTab === "paste") {
       const text = $("#paste-text").value;
-      if (!text.trim()) throw new Error("متنی paste نشده.");
+      if (!text.trim()) throw new Error(t("import.no_text"));
       res = await api("/import/paste", { method: "POST", json: { text, title, source } });
     } else if (importTab === "file") {
       const f = $("#file-input").files[0];
-      if (!f) throw new Error("فایلی انتخاب نشده.");
+      if (!f) throw new Error(t("import.no_file"));
       const fd = new FormData();
       fd.append("file", f);
       if (source) fd.append("source", source);
@@ -1412,13 +1404,13 @@ $("#import-submit").addEventListener("click", async () => {
       }
     } else {
       const url = $("#link-url").value.trim();
-      if (!url) throw new Error("لینکی وارد نشده.");
+      if (!url) throw new Error(t("import.no_link"));
       res = await api("/import/link", { method: "POST", json: { url } });
     }
     importDlg.close();
     await refreshList();
     if (res.ids.length === 1) openConversation(res.ids[0]);
-    else notify(`${fa(res.ids.length)} مکالمه ایمپورت شد.`);
+    else notify(tn("import.done_many", res.ids.length));
   } catch (err) {
     errBox.textContent = err.message;
     errBox.hidden = false;
@@ -1434,11 +1426,11 @@ $("#btn-new-chat").addEventListener("click", () => newChat().catch(showFatal));
 
 // ---------- theme and narrow-window menu ----------
 
-const THEMES = { auto: ["auto", "خودکار"], light: ["sun", "روشن"], dark: ["moon", "تیره"] };
-function applyTheme(t) {
-  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+const THEMES = { auto: ["auto", t("theme.auto")], light: ["sun", t("theme.light")], dark: ["moon", t("theme.dark")] };
+function applyTheme(name) {
+  if (name === "light" || name === "dark") document.documentElement.dataset.theme = name;
   else delete document.documentElement.dataset.theme;
-  const [ic, label] = THEMES[t] || THEMES.auto;
+  const [ic, label] = THEMES[name] || THEMES.auto;
   $("#btn-theme").replaceChildren(icon(ic), label);
 }
 $("#btn-theme").addEventListener("click", () => {
@@ -1467,9 +1459,9 @@ async function openKeyDialog() {
   const st = await refreshKeyState().catch(() => ({ set: false }));
   $("#key-input").value = "";
   $("#key-error").hidden = true;
-  $("#key-state").textContent = !st.set ? "هنوز کلیدی وارد نشده."
-    : st.source === "env" ? `کلید از فایل .env یا متغیر محیطی خونده میشه (${st.hint}). کلیدی که اینجا وارد کنی فقط وقتی استفاده میشه که اون نباشه.`
-    : `کلید ذخیره شده: ${st.hint}`;
+  $("#key-state").textContent = !st.set ? t("key.none")
+    : st.source === "env" ? t("key.from_env", { hint: st.hint })
+    : t("key.saved_hint", { hint: st.hint });
   $("#key-remove").hidden = st.source !== "saved";
   $("#key-dialog").showModal();
   $("#key-input").focus();
@@ -1480,7 +1472,7 @@ $("#key-save").addEventListener("click", async () => {
   const key = $("#key-input").value.trim();
   if (!key) { $("#key-input").focus(); return; }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> در حال بررسی…';
+  btn.replaceChildren(el("span", { class: "spinner" }), " " + t("key.checking"));
   try {
     const res = await api("/settings/key", { method: "PUT", json: { key } });
     $("#key-input").value = "";
@@ -1488,18 +1480,18 @@ $("#key-save").addEventListener("click", async () => {
     await refreshKeyState();
     state.models = [];
     loadModels();
-    notify(res.warning ? `کلید ذخیره شد. ${res.warning}` : `✓ کلید درسته و ذخیره شد (${res.hint}).`);
+    notify(res.warning ? t("key.saved_warning", { warning: res.warning }) : t("key.saved_ok", { hint: res.hint }));
     if (!state.current) showWelcome();
   } catch (err) {
     $("#key-error").textContent = err.message;
     $("#key-error").hidden = false;
   } finally {
     btn.disabled = false;
-    btn.textContent = "ذخیره و بررسی";
+    btn.textContent = t("key.save");
   }
 });
 $("#key-remove").addEventListener("click", async () => {
-  if (!(await askConfirm("کلید ذخیره‌شده پاک بشه؟", "پاک کن", true))) return;
+  if (!(await askConfirm(t("key.remove_confirm"), t("common.delete_ok"), true))) return;
   await api("/settings/key", { method: "DELETE" });
   $("#key-dialog").close();
   await refreshKeyState();
@@ -1523,8 +1515,8 @@ async function openConnect(tab = "ext") {
   $("#ext-dir").textContent = info.extension_dir;
   $("#ext-open").disabled = !info.extension_dir_exists;
   $("#ext-state").textContent = pairing.paired
-    ? `✓ یه افزونه وصله (ID: ${pairing.paired}). اگه افزونه رو از یه پوشه‌ی دیگه یا روی مرورگر دیگه نصب کنی، دوباره «قبول» لازم میشه.`
-    : "هنوز هیچ افزونه‌ای وصل نشده.";
+    ? t("connect.ext_paired", { id: pairing.paired })
+    : t("connect.ext_none");
   $("#mcp-claude").textContent = info.claude_code;
   $("#mcp-hermes").textContent = info.hermes;
   $("#mcp-opencode").textContent = info.opencode;
@@ -1548,16 +1540,21 @@ function renderRemote(s) {
   const installing = inst.state === "downloading";
 
   // step 1: the tunnel tool
-  $("#rstep-1-state").textContent = s.cloudflared ? "✓ آماده" : "";
+  $("#rstep-1-state").textContent = s.cloudflared ? t("remote.ready") : "";
   $("#rstep-1").classList.toggle("done", s.cloudflared);
   $("#rstep-1-body").hidden = s.cloudflared;
-  $("#remote-install").hidden = installing;
+  const manual = s.can_install === false; // not Windows: the user installs cloudflared (macOS: Homebrew)
+  $("#remote-manual").hidden = !manual;
+  $("#remote-install-hint").textContent = manual ? s.install_hint || "" : "";
+  $("#remote-brew-box").hidden = !(manual && I18N.platform === "darwin");
+  $("#remote-install").hidden = installing || manual;
   $("#remote-progress").hidden = !installing;
   if (installing) {
     const pct = inst.total ? Math.round((100 * inst.done) / inst.total) : 0;
     $("#remote-progress-bar").style.width = `${pct}%`;
     $("#remote-install-state").textContent = inst.total
-      ? `در حال دانلود… ${fa((inst.done / 1e6).toFixed(0))} از ${fa((inst.total / 1e6).toFixed(0))} مگ` : "در حال شروع دانلود…";
+      ? t("remote.downloading", { done: fa((inst.done / 1e6).toFixed(0)), total: fa((inst.total / 1e6).toFixed(0)) })
+      : t("remote.download_starting");
   } else {
     $("#remote-install-state").textContent = inst.state === "error" ? inst.error : "";
   }
@@ -1567,14 +1564,14 @@ function renderRemote(s) {
   $("#rstep-2").classList.toggle("disabled", !s.cloudflared);
   $("#rstep-2").classList.toggle("done", on && s.reachable === true);
   $("#remote-toggle").disabled = !s.cloudflared && !on;
-  $("#remote-toggle").textContent = on ? "خاموش کردن" : "روشن کردن آدرس اینترنتی";
+  $("#remote-toggle").textContent = on ? t("remote.turn_off") : t("connect.remote.turn_on");
   $("#remote-toggle").classList.toggle("primary", !on);
   $("#remote-toggle").classList.toggle("danger", on);
-  $("#rstep-2-state").textContent = on ? (s.reachable === true ? "✓ روشن و در دسترس" : s.reachable === false ? "⚠ در دسترس نیست" : "در حال آماده شدن…") : "";
-  $("#remote-state").textContent = !on ? (s.cloudflared ? "خاموشه" : "اول قدم ۱ رو انجام بده")
-    : s.reachable === true ? `روشنه از ${s.started_at} و از اینترنت در دسترسه.`
+  $("#rstep-2-state").textContent = on ? (s.reachable === true ? t("remote.reachable") : s.reachable === false ? t("remote.unreachable") : t("remote.preparing")) : "";
+  $("#remote-state").textContent = !on ? (s.cloudflared ? t("remote.off") : t("remote.do_step1"))
+    : s.reachable === true ? t("remote.on_since", { time: s.started_at })
     : s.reachable === false ? s.reach_detail
-    : `روشن شد؛ داره چک می‌کنه که از اینترنت در دسترس باشه… ${s.reach_detail || ""}`;
+    : t("remote.checking", { detail: s.reach_detail || "" });
 
   // step 3: connect Gemini
   $("#rstep-3").classList.toggle("disabled", !on);
@@ -1584,7 +1581,7 @@ function renderRemote(s) {
   $("#remote-calls").replaceChildren(...(s.calls.length
     ? s.calls.map((c) => el("li", {}, el("span", { class: "hint" }, c.at), " ", c.tool, " ",
         el("code", { dir: "ltr" }, Object.keys(c.args).length ? JSON.stringify(c.args) : "")))
-    : [el("li", { class: "hint" }, "هنوز درخواستی نیومده.")]));
+    : [el("li", { class: "hint" }, t("remote.no_calls"))]));
   $("#remote-error").hidden = !s.error;
   $("#remote-error").textContent = s.error || "";
 
@@ -1601,13 +1598,18 @@ async function refreshRemote() {
 $("#remote-install").addEventListener("click", async () => {
   try { renderRemote(await api("/remote/install", { method: "POST" })); } catch (err) { notify(err.message); }
 });
+$("#remote-recheck").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try { renderRemote(await api("/remote")); } catch (err) { notify(err.message); } finally { btn.disabled = false; }
+});
 
 $("#remote-toggle").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   const s = await api("/remote").catch(() => ({ running: false }));
-  if (!s.running && !(await askConfirm("تا وقتی روشنه، هر کی آدرس رو داشته باشه می‌تونه کتابخونه و حافظه‌ت رو بخونه، و چیزهایی که Gemini می‌خونه به Google میره. روشن بشه؟", "روشن کن"))) return;
+  if (!s.running && !(await askConfirm(t("remote.confirm"), t("remote.confirm_ok")))) return;
   btn.disabled = true;
-  btn.textContent = s.running ? "در حال خاموش کردن…" : "در حال ساختن آدرس (تا ۴۵ ثانیه)…";
+  btn.textContent = s.running ? t("remote.stopping") : t("remote.starting");
   try {
     renderRemote(await api(s.running ? "/remote/stop" : "/remote/start", { method: "POST" }));
   } catch (err) {
@@ -1622,10 +1624,10 @@ document.querySelectorAll("button.copy").forEach((b) => b.addEventListener("clic
   try {
     await navigator.clipboard.writeText(text);
     const old = b.textContent;
-    b.textContent = "✓ کپی شد";
+    b.textContent = t("common.copied");
     setTimeout(() => (b.textContent = old), 1500);
   } catch {
-    notify("کپی نشد؛ متن رو انتخاب کن و Ctrl+C بزن.");
+    notify(t("common.copy_failed"));
   }
 }));
 $("#ext-open").addEventListener("click", () => api("/open-folder", { method: "POST", json: { which: "extension" } }).catch((e) => notify(e.message)));
@@ -1647,7 +1649,7 @@ function updateMemoryBadge() {
   const b = $("#memory-badge");
   b.hidden = !n;
   b.textContent = fa(n);
-  b.title = `${fa(n)} پیشنهاد منتظر تأیید`;
+  b.title = tn("memory.badge_title", n);
 }
 
 // Runs a memory API call, keeps state.memory in sync and redraws the open memory dialog.
@@ -1674,17 +1676,17 @@ function memoryCard({ id, text }) {
     const note = state.memory.items.find((n) => n.id === id);
     const status = !note ? "dropped" : note.status;
     node.classList.toggle("done", status !== "suggested");
-    const label = { suggested: "پیشنهاد برای حافظه:", active: "توی حافظه ذخیره شد:", dropped: "پیشنهاد حافظه (ذخیره نشد):" }[status];
+    const label = t(`memory.card.${status}`);
     node.replaceChildren(el("span", { class: "mc-label" }, icon("memory"), label),
       el("span", { class: "mc-text" }, note ? note.text : text));
     if (status === "suggested") {
       node.append(
-        el("button", { class: "primary", type: "button", onclick: async () => { if (await memApprove(id)) render(); } }, "ذخیره"),
+        el("button", { class: "primary", type: "button", onclick: async () => { if (await memApprove(id)) render(); } }, t("memory.save")),
         el("button", { type: "button", onclick: async () => {
-          const t = await askText("یادداشت رو ویرایش کن:", note.text);
-          if (t && t.trim() && (await memApprove(id, t.trim()))) render();
-        } }, "ویرایش"),
-        el("button", { type: "button", onclick: async () => { if (await memDelete(id)) render(); } }, "نه"));
+          const txt = await askText(t("memory.edit_prompt"), note.text);
+          if (txt && txt.trim() && (await memApprove(id, txt.trim()))) render();
+        } }, t("memory.edit")),
+        el("button", { type: "button", onclick: async () => { if (await memDelete(id)) render(); } }, t("memory.no")));
     }
   };
   render();
@@ -1700,15 +1702,15 @@ async function openMemory() {
 }
 
 function memoryRow(n) {
-  const src = n.source_title ? el("span", { class: "mem-src" }, `از «${n.source_title}»`) : null;
+  const src = n.source_title ? el("span", { class: "mem-src" }, t("memory.from", { title: n.source_title })) : null;
   const actions = n.status === "suggested"
-    ? [el("button", { class: "primary", type: "button", onclick: () => memApprove(n.id) }, "ذخیره"),
-       el("button", { type: "button", onclick: () => memDelete(n.id) }, "نه")]
+    ? [el("button", { class: "primary", type: "button", onclick: () => memApprove(n.id) }, t("memory.save")),
+       el("button", { type: "button", onclick: () => memDelete(n.id) }, t("memory.no"))]
     : [el("button", { type: "button", onclick: async () => {
-          const t = await askText("یادداشت رو ویرایش کن:", n.text);
-          if (t && t.trim() && t.trim() !== n.text) memoryAct(() => api(`/memory/${n.id}`, { method: "PATCH", json: { text: t.trim() } }));
-        } }, "ویرایش"),
-       el("button", { type: "button", title: "پاک کردن", "aria-label": "پاک کردن", onclick: () => memDelete(n.id) }, icon("trash"))];
+          const txt = await askText(t("memory.edit_prompt"), n.text);
+          if (txt && txt.trim() && txt.trim() !== n.text) memoryAct(() => api(`/memory/${n.id}`, { method: "PATCH", json: { text: txt.trim() } }));
+        } }, t("memory.edit")),
+       el("button", { type: "button", title: t("memory.delete"), "aria-label": t("memory.delete"), onclick: () => memDelete(n.id) }, icon("trash"))];
   return el("li", { class: n.status === "suggested" ? "pending" : "" },
     el("span", { class: "mem-text" }, n.text, src), el("span", { class: "mem-actions" }, ...actions));
 }
@@ -1721,10 +1723,10 @@ function renderMemory() {
   $("#memory-suggested").hidden = !pending.length;
   $("#memory-suggested-list").replaceChildren(...pending.map(memoryRow));
   $("#memory-list").replaceChildren(...(active.length ? active.map(memoryRow)
-    : [el("li", { class: "empty-row" }, "هنوز یادداشتی نداری. بالا یکی بنویس، یا از صفحه‌ی یه مکالمه «نکته‌ها برای حافظه» رو بزن.")]));
+    : [el("li", { class: "empty-row" }, t("memory.empty"))]));
   $("#memory-meta").textContent = active.length
-    ? `${fa(active.length)} یادداشت · حدود ${fa(s.tokens)} توکن با هر پیام` +
-      (s.all_fit ? "" : ` · بیشتر از سقف ${fa(s.token_cap)} توکنه، پس با هر پیام فقط مرتبط‌ترین‌ها میرن`)
+    ? tn("memory.meta", active.length, { tokens: fa(s.tokens) }) +
+      (s.all_fit ? "" : t("memory.meta_over", { cap: fa(s.token_cap) }))
     : "";
 }
 
@@ -1743,12 +1745,12 @@ $("#memory-add").addEventListener("submit", async (e) => {
 // "Notes for memory" on an imported conversation: a model lists candidate notes, the user picks.
 async function extractMemory(conv, btn) {
   const model = store.get("model");
-  if (!model) { notify("اول توی یه گفتگو یه مدل انتخاب کن؛ نکته‌ها با همون مدل درمیان."); return; }
+  if (!model) { notify(t("memory.need_model")); return; }
   const tokens = conv.tokens > 120000 && conv.summary ? conv.summary_tokens : conv.tokens;
-  if (!(await askConfirm(`مدل ${model} این مکالمه (حدود ${fa(tokens)} توکن) رو می‌خونه و نکته‌های ماندگار درباره‌ی تو رو پیشنهاد میده. چیزی بدون انتخاب تو ذخیره نمیشه.`, "شروع کن"))) return;
+  if (!(await askConfirm(t("memory.extract_confirm", { model, tokens: fa(tokens) }), t("memory.extract_ok")))) return;
   const old = [...btn.childNodes];
   btn.disabled = true;
-  btn.replaceChildren(el("span", { class: "spinner" }), " در حال خوندن…");
+  btn.replaceChildren(el("span", { class: "spinner" }), " " + t("conv.reading"));
   let res;
   try {
     res = await api(`/conversations/${conv.id}/memory/extract`, { method: "POST", json: { model } });
@@ -1761,23 +1763,23 @@ async function extractMemory(conv, btn) {
   }
   const list = $("#extract-list");
   $("#extract-intro").textContent =
-    `از «${conv.title}». هر کدوم رو که درسته و می‌خوای مدل‌ها بدونن تیک بزن؛ می‌تونی متنش رو هم همین‌جا عوض کنی.`;
+    t("memory.extract_intro", { title: conv.title });
   list.replaceChildren(...(res.suggestions.length ? res.suggestions.map((s, i) => {
     const cb = el("input", { type: "checkbox", id: `ex-${i}`, checked: !s.known, disabled: s.known });
     const text = el("input", { type: "text", value: s.text, maxlength: 500, disabled: s.known });
     return el("li", { class: s.known ? "known" : "" }, cb, el("span", { class: "mem-text" }, text,
-      s.known ? el("span", { class: "mem-src" }, "قبلاً توی حافظه هست") : null));
-  }) : [el("li", { class: "empty-row" }, "نکته‌ی ماندگاری پیدا نشد.")]));
+      s.known ? el("span", { class: "mem-src" }, t("memory.known")) : null));
+  }) : [el("li", { class: "empty-row" }, t("memory.none_found"))]));
   $("#extract-meta").textContent = "";
   $("#extract-save").disabled = !res.suggestions.some((s) => !s.known);
   $("#extract-save").onclick = async () => {
     const texts = [...list.querySelectorAll("li")]
       .filter((li) => li.querySelector("input[type=checkbox]")?.checked)
       .map((li) => li.querySelector("input[type=text]").value.trim()).filter(Boolean);
-    if (!texts.length) { $("#extract-meta").textContent = "چیزی انتخاب نشده."; return; }
+    if (!texts.length) { $("#extract-meta").textContent = t("memory.none_selected"); return; }
     if (await memoryAct(() => api("/memory", { method: "POST", json: { texts, source_conversation_id: conv.id } }))) {
       $("#extract-dialog").close();
-      notify(`${fa(texts.length)} یادداشت به حافظه اضافه شد.`);
+      notify(tn("memory.added", texts.length));
     }
   };
   $("#extract-dialog").showModal();
@@ -1802,13 +1804,13 @@ async function openHandoff(chatId, getModel) {
     return;
   }
   if (!ho.info.turns) {
-    notify("این گفتگو هنوز پیامی نداره. اول یه کم اینجا ادامه بده، بعد ببرش.");
+    notify(t("handoff.no_messages"));
     return;
   }
   const hasRefs = ho.info.references.length > 0;
   const orig = document.querySelector('input[name="ho-target"][value="original"]');
   orig.disabled = !hasRefs;
-  orig.closest(".ho-card").title = hasRefs ? "" : "این گفتگو مرجعی نداره؛ از یه مکالمه‌ی ایمپورت‌شده شروع نشده.";
+  orig.closest(".ho-card").title = hasRefs ? "" : t("handoff.no_refs");
   document.querySelector(`input[name="ho-target"][value="${hasRefs ? "original" : "new"}"]`).checked = true;
   document.querySelector('input[name="ho-format"][value="full"]').checked = true;
   $("#ho-since").checked = true;
@@ -1822,20 +1824,20 @@ function hoRender() {
   $("#ho-since-wrap").hidden = !(target === "original" && last);
   if (last) {
     $("#ho-since-label").textContent =
-      `فقط پیام‌های بعد از هندآف قبلی (${fmtDate(last.created_at)}؛ ${fa(ho.info.new_since_last)} پیام جدید)`;
+      t("handoff.since", { date: fmtDate(last.created_at), n: fa(ho.info.new_since_last) });
   }
   const origin = $("#ho-origin");
   origin.innerHTML = "";
   if (target === "original") {
-    origin.append("مکالمه‌ی اصلی: ");
+    origin.append(t("handoff.origin"));
     ho.info.references.forEach((r, i) => {
-      if (i) origin.append("، ");
-      origin.append(badge(r.source), ` «${r.title}» `);
-      if (r.source_url) origin.append(el("a", { href: r.source_url, target: "_blank", rel: "noreferrer" }, "باز کردن ↗"));
+      if (i) origin.append(t("common.list_sep"));
+      origin.append(badge(r.source), t("handoff.ref_title", { title: r.title }));
+      if (r.source_url) origin.append(el("a", { href: r.source_url, target: "_blank", rel: "noreferrer" }, t("handoff.open")));
     });
-    if (ho.info.references.length > 1) origin.append(el("br"), "اگه چند تا مرجع داری، این متن رو توی همونی بذار که می‌خوای ادامه‌ش بدی.");
+    if (ho.info.references.length > 1) origin.append(el("br"), t("handoff.many_refs"));
   } else {
-    origin.textContent = "مرجع‌ها با خلاصه‌شون میرن، اگه خلاصه ساخته شده باشه؛ وگرنه متن کامل. برای مکالمه‌های بلند «خلاصه با مدل» بهتره.";
+    origin.textContent = t("handoff.new_note");
   }
 }
 
@@ -1854,15 +1856,15 @@ async function hoRefresh() {
   if (format === "brief") {
     const model = ho.getModel() || store.get("model") || "";
     text.value = "";
-    text.placeholder = "خلاصه هنوز ساخته نشده.";
+    text.placeholder = t("handoff.brief_none");
     if (!model) {
-      meta.textContent = "برای خلاصه اول بالای گفتگو یه مدل انتخاب کن.";
+      meta.textContent = t("handoff.brief_need_model");
       return;
     }
-    const btn = el("button", { type: "button" }, `ساختن خلاصه با ${model}`);
+    const btn = el("button", { type: "button" }, t("handoff.brief_build", { model }));
     btn.onclick = async () => {
       btn.disabled = true;
-      btn.textContent = "در حال نوشتن خلاصه…";
+      btn.textContent = t("handoff.brief_writing");
       try {
         const res = await api(`/chats/${ho.chatId}/handoff/build`, { method: "POST", json: { ...body, model } });
         if (req !== ho.req) return;
@@ -1871,10 +1873,10 @@ async function hoRefresh() {
         $("#ho-error").textContent = err.message;
         $("#ho-error").hidden = false;
         btn.disabled = false;
-        btn.textContent = `ساختن خلاصه با ${model}`;
+        btn.textContent = t("handoff.brief_build", { model });
       }
     };
-    meta.append(btn, " ", el("span", {}, "یه مدل همه‌ی این متن رو می‌خونه و یه جمع‌بندی برای دستیار بعدی می‌نویسه (هزینه‌ی کمی داره)."));
+    meta.append(btn, " ", el("span", {}, t("handoff.brief_note")));
     return;
   }
   text.placeholder = "…";
@@ -1893,19 +1895,19 @@ function hoShow(res) {
   const meta = $("#ho-meta");
   meta.innerHTML = "";
   if (!res.text) {
-    meta.textContent = "از هندآف قبلی تا حالا پیام جدیدی نیومده. اگه می‌خوای کل گفتگو بره، تیک بالا رو بردار.";
+    meta.textContent = t("handoff.nothing_new");
     return;
   }
-  const what = ho.target === "original" ? `${fa(res.count)} پیام` : "مرجع‌ها و گفتگو";
-  meta.textContent = `${what} · حدود ${fa(res.tokens)} توکن · ${fa(res.text.length)} حرف.` +
-    (res.text.length > 30000 ? " این متن بلنده؛ بعضی سایت‌ها پیام بلند رو قبول نمی‌کنن یا تبدیلش می‌کنن به فایل. «خلاصه با مدل» یا فایل ‎.md رو امتحان کن." : "") +
-    " می‌تونی متن رو قبل از فرستادن ویرایش کنی.";
+  const what = ho.target === "original" ? tn("handoff.count", res.count) : t("handoff.refs_and_chat");
+  meta.textContent = t("handoff.meta", { what, tokens: fa(res.tokens), chars: fa(res.text.length) }) +
+    (res.text.length > 30000 ? t("handoff.long") : "") +
+    t("handoff.editable");
 }
 
 async function hoDone(via) {
   const text = $("#ho-text").value;
   if (!text.trim()) {
-    notify("متنی برای فرستادن نیست.");
+    notify(t("handoff.nothing_to_send"));
     return false;
   }
   try {
@@ -1933,9 +1935,9 @@ $("#ho-copy").addEventListener("click", async (e) => {
     await navigator.clipboard.writeText(text);
   } catch {
     $("#ho-text").select();
-    if (!document.execCommand("copy")) { notify("کپی نشد؛ متن رو انتخاب کن و Ctrl+C بزن."); return; }
+    if (!document.execCommand("copy")) { notify(t("common.copy_failed")); return; }
   }
-  if (await hoDone("copy")) hoFlash(e.currentTarget || $("#ho-copy"), "✓ کپی شد؛ حالا توی چت paste کن");
+  if (await hoDone("copy")) hoFlash(e.currentTarget || $("#ho-copy"), t("handoff.copied"));
 });
 $("#ho-file").addEventListener("click", async () => {
   const text = $("#ho-text").value;
@@ -1953,13 +1955,21 @@ $("#ho-ext").addEventListener("click", async () => {
   const ref = ho.target === "original" && ho.info.references.length === 1 ? ho.info.references[0] : null;
   const meta = $("#ho-meta");
   meta.innerHTML = "";
-  meta.append("✓ متن منتظر افزونه‌ست (تا ۱۵ دقیقه). حالا چت مقصد رو توی Chrome یا Edge باز کن، یا اگه بازه refresh کن. " +
-    "پایین سمت راست دکمه‌ی «گذاشتن متن ConvoHub توی جعبه‌ی پیام» میاد؛ بزنش، متن رو یه نگاه بنداز و خودت Send رو بزن.");
-  if (ref?.source_url) meta.append(" ", el("a", { href: ref.source_url, target: "_blank", rel: "noreferrer" }, "باز کردن مکالمه‌ی اصلی ↗"));
+  meta.append(t("handoff.ext_waiting"));
+  if (ref?.source_url) meta.append(" ", el("a", { href: ref.source_url, target: "_blank", rel: "noreferrer" }, t("handoff.open_original")));
 });
 $("#ho-close").addEventListener("click", () => $("#handoff-dialog").close());
 
+$("#btn-lang").addEventListener("click", () =>
+  I18N.switchTo(I18N.lang === "fa" ? "en" : "fa").catch((e) => notify(e.message)));
+
 (async () => {
+  await I18N.init(); // the saved language (a new install saves the browser's); fills data-i18n texts
+  if (I18N.platform === "darwin") { // path examples in this system's style (index.html has the Windows ones)
+    $("#set-folders").placeholder = "/Users/me/Projects/MyApp";
+    $("#set-skills").placeholder = "~/.claude/skills";
+    $("#backup-folder").placeholder = "/Users/me/Backups/ConvoHub";
+  }
   try {
     await refreshKeyState();
   } catch {}

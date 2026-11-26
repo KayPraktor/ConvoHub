@@ -10,7 +10,9 @@
 [![Downloads](https://img.shields.io/github/downloads/KayPraktor/ConvoHub/total?style=for-the-badge&color=14b8a6)](https://github.com/KayPraktor/ConvoHub/releases)
 [![License: MIT](https://img.shields.io/github/license/KayPraktor/ConvoHub?style=for-the-badge&color=f59e0b)](LICENSE)
 [![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0wIDBoMTF2MTFIMHpNMTMgMGgxMXYxMUgxM3pNMCAxM2gxMXYxMUgwek0xMyAxM2gxMXYxMUgxM3oiLz48L3N2Zz4=)](#limitations)
+[![macOS (Apple Silicon)](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](#option-2--macos-app-apple-silicon)
 
+[![Build](https://github.com/KayPraktor/ConvoHub/actions/workflows/build.yml/badge.svg)](https://github.com/KayPraktor/ConvoHub/actions/workflows/build.yml)
 [![Python 3.14](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![SQLite](https://img.shields.io/badge/SQLite-FTS5-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org)
@@ -39,8 +41,10 @@ You think things through with Gemini, write with ChatGPT and code with Claude Co
 - 💬 **Chat with any model** (through [OpenRouter](https://openrouter.ai)) and hand it earlier conversations as references: *"given these two chats, what's the next step?"*
 - 🔌 **Share the library** with **Claude Code, OpenCode, Hermes and Cline** over MCP.
 
+🌐 **English and Persian (فارسی).** The interface, the browser extension and the guides come in both languages. Switch with the language button in the top bar of the sidebar, next to the theme button. A new install picks the language from your browser, and the extension follows the app's language.
+
 > [!NOTE]
-> ConvoHub is a personal, local tool: no server, no account, no telemetry. The interface is in **Persian (right-to-left)**. Tested on **Windows 11** only.
+> ConvoHub is a personal, local tool: no server, no account, no telemetry. The interface is in **English or Persian** (Persian is right-to-left). Runs on **Windows 11** (tested by us) and **macOS on Apple Silicon** (built and smoke-tested automatically on GitHub's Apple Silicon machines; not yet tested by a person).
 
 ## Features
 
@@ -58,7 +62,7 @@ You think things through with Gemini, write with ChatGPT and code with Claude Co
 
 ## Install
 
-### Option 1 — Installer (recommended)
+### Option 1 — Windows installer (recommended)
 
 No Python or other tools needed.
 
@@ -76,19 +80,48 @@ Windows warns about any program that isn't signed with a paid code-signing certi
 
 - All of the code is in this repository.
 - The installer is built from this same code with [`packaging/build.ps1`](packaging/build.ps1).
-- If you'd rather not run it, use Option 2 and run from source.
+- If you'd rather not run it, use Option 3 and run from source.
 
 Some antivirus tools also flag programs built with PyInstaller by mistake.
 
-### Option 2 — From source
+### Option 2 — macOS app (Apple Silicon)
 
-The only prerequisite is **[uv](https://docs.astral.sh/uv/)**, which downloads the right Python by itself. Install it from PowerShell:
+For Macs with Apple Silicon (M1 or newer), macOS 12 or later. No Python or other tools needed.
+
+1. Download **`ConvoHub-mac-arm64.dmg`** from the [latest release](https://github.com/KayPraktor/ConvoHub/releases/latest).
+2. Open it and drag **ConvoHub** onto the **Applications** folder.
+3. Open ConvoHub from Applications. The first time, macOS refuses because it's "not from an identified developer" ([why?](#why-does-macos-say-the-app-cant-be-verified)):
+   - **macOS 15 (Sequoia) or newer:** click **Done**, then go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to the ConvoHub message, and confirm.
+   - **macOS 12–14:** right-click (or Control-click) ConvoHub in Applications, choose **Open**, then **Open** again.
+
+   You only need to do this once.
+4. ConvoHub has no window and no Dock icon: it runs in the background and opens in your browser at `http://127.0.0.1:28765`. It asks for your [OpenRouter key](#openrouter-key) first. Open the app again any time to get back to it, and stop it with the power button in the sidebar.
+
+- **Data:** your library, settings and backups live in `~/Library/Application Support/ConvoHub`. The OpenRouter key is kept in the macOS **Keychain**.
+- **Browser extension:** its folder is inside that data folder; **Connect** has an **Open folder** button.
+- **Online address for Gemini:** needs Cloudflare's tunnel tool on a Mac: `brew install cloudflared`.
+- **Update:** stop ConvoHub, then drag the new version onto Applications and choose **Replace**. Your data stays.
+- **Uninstall:** stop ConvoHub and move it from Applications to the Trash. To delete your data too, delete `~/Library/Application Support/ConvoHub`.
+
+#### Why does macOS say the app can't be verified?
+
+For the same reason as the [Windows warning](#why-does-windows-warn-about-an-unknown-publisher): Apple only "verifies" apps signed with a paid Apple developer certificate, and ConvoHub is a free, open-source project. The app is built from this repository's code by [GitHub Actions](https://github.com/KayPraktor/ConvoHub/actions/workflows/build.yml) with [`packaging/build_mac.sh`](packaging/build_mac.sh). If you'd rather not run it, use Option 3 and run from source.
+
+### Option 3 — From source
+
+The only prerequisite is **[uv](https://docs.astral.sh/uv/)**, which downloads the right Python by itself. Install it from PowerShell on Windows:
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Then:
+or from Terminal on macOS:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then, on Windows:
 
 1. Get the code — **Code → Download ZIP**, or:
 
@@ -98,6 +131,13 @@ Then:
 
 2. Double-click **`install.bat`** in the project folder. It installs the packages and puts two shortcuts on your desktop: **ConvoHub** and a **Stop** shortcut.
 3. Double-click the **ConvoHub** shortcut. (`start.bat` works too, but keeps a terminal window open.)
+
+On macOS, get the code the same way, then in Terminal, in the project folder:
+
+```bash
+bash install.sh   # once: installs the packages
+bash start.sh     # starts ConvoHub and opens it in your browser
+```
 
 When run from source, data lives in the project's `data` folder. You can also put the key in a `.env` file instead of the UI (see [`.env.example`](.env.example)).
 
@@ -111,21 +151,27 @@ ConvoHub talks to models through [OpenRouter](https://openrouter.ai): one accoun
 
 ## Browser extension
 
-In ConvoHub, click **اتصال** (Connect) at the bottom of the sidebar. The page walks you through installing the extension in Chrome or Edge, with a button that opens the extension folder. In short:
+In ConvoHub, click **Connect** at the bottom of the sidebar. The page walks you through installing the extension in Chrome or Edge, with a button that opens the extension folder. In short:
 
 1. Go to `chrome://extensions` (or `edge://extensions`).
 2. Turn on **Developer mode**.
 3. Click **Load unpacked** and pick the `extension` folder.
 4. Open a chat page, then click **Accept** in ConvoHub to pair the extension.
 
-Full guide (Persian): [docs/EXTENSION.md](docs/EXTENSION.md)
+Full guide: [docs/EXTENSION.md](docs/EXTENSION.md) · فارسی: [docs/fa/EXTENSION.md](docs/fa/EXTENSION.md)
 
 ## Connect Claude Code and other tools (MCP)
 
-In ConvoHub: **اتصال** (Connect) → **Claude Code و بقیه** (Claude Code and others). The ready-to-copy command for each tool already has the right paths for your machine. For Claude Code it looks like this:
+In ConvoHub: **Connect** → **Claude Code and others**. The ready-to-copy command for each tool already has the right paths for your machine. For Claude Code it looks like this:
 
 ```bash
 claude mcp add convohub --scope user -- "%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe"
+```
+
+On a Mac, with ConvoHub in Applications:
+
+```bash
+claude mcp add convohub --scope user -- /Applications/ConvoHub.app/Contents/MacOS/convohub-mcp
 ```
 
 Then ask Claude Code something like *"Read my advisor conversation from the ConvoHub library and tell me the next step."*
@@ -139,23 +185,23 @@ Then ask Claude Code something like *"Read my advisor conversation from the Conv
 | `read_memory` | Your memory notes (read-only) |
 | `add_conversation_from_link` | Import from a share link |
 
-Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
+Full guide: [docs/MCP_SETUP.md](docs/MCP_SETUP.md) · فارسی: [docs/fa/MCP_SETUP.md](docs/fa/MCP_SETUP.md)
 
 ## Security and privacy
 
 - 🏠 **Everything stays local.**
-  - The library, chats, settings and backups are stored only on your computer: in `%LOCALAPPDATA%\ConvoHub` for the installed app, or the `data` folder when run from source.
+  - The library, chats, settings and backups are stored only on your computer: in `%LOCALAPPDATA%\ConvoHub` for the installed Windows app, `~/Library/Application Support/ConvoHub` for the Mac app, or the `data` folder when run from source.
   - There is no central server, no account and no telemetry.
   - ConvoHub listens on `127.0.0.1` only, so other machines and websites can't reach it.
 - 📤 **Conversations go only to the model you choose.** When you tick a conversation as a reference, its text (or summary) is sent with each message, through OpenRouter, to that model. So are your memory notes, while memory is on for that chat. OpenRouter's and the model provider's privacy policies apply, so think twice about very sensitive material.
-- 🔑 **Your OpenRouter key** is stored only on this computer, encrypted with your Windows account (DPAPI). It is never included in backups and never shown in full in the UI.
+- 🔑 **Your OpenRouter key** is stored only on this computer, encrypted with your Windows account (DPAPI), or in the Keychain on a Mac. It is never included in backups and never shown in full in the UI.
 - 🛠️ **Agent mode:**
   - Reading is limited to folders you allowed. Files such as `.env` and keys are never read.
   - Writing, editing, deleting (to the Recycle Bin) and running commands happen only after you click **Allow**.
   - MCP tools ask every time too, unless you chose "always allow" for a specific tool.
 
 > [!WARNING]
-> A command you approve in agent mode (PowerShell) is **not** limited to the allowed folders. It runs with your Windows account's full permissions on the **whole system**. Read the command before you approve it.
+> A command you approve in agent mode (PowerShell on Windows, your shell — usually zsh — on a Mac) is **not** limited to the allowed folders. It runs with your user account's full permissions on the **whole system**. Read the command before you approve it.
 
 - 🧾 **Imported text is data, not instructions.** If a conversation or file says "do X", the model is told not to act on it, and nothing changes on your system without your approval anyway.
 - 🌐 **The online address (off by default).** If you switch on Connect → "Gemini and online services", a read-only MCP server becomes reachable from the internet through a temporary Cloudflare address with a secret key in it. While it's on, anyone with that address can read your library and memory (nothing can be changed), and whatever Gemini reads goes to Google. The address and key change every time, and it switches off when ConvoHub closes. If the Cloudflare tunnel tool (cloudflared) is missing, ConvoHub can install it with one click from Cloudflare's official GitHub release, after checking its digital signature.
@@ -164,9 +210,9 @@ Full guide (Persian): [docs/MCP_SETUP.md](docs/MCP_SETUP.md)
 
 ## Limitations
 
-- **OS:** tested only on Windows 11 (64-bit).
-- **Language:** the interface is in Persian (right-to-left). Conversations can be in any language.
-- **Link import** needs Chrome or Microsoft Edge (Edge ships with Windows). Claude share links usually block automated browsers; for Claude, paste the text or use the extension.
+- **OS:** Windows 11 (64-bit) is tested by us. macOS builds (Apple Silicon only, macOS 12 or later) are built and smoke-tested automatically on GitHub's Apple Silicon machines, but not yet tested by a person. Intel Macs aren't supported by the app (run from source instead).
+- **Language:** the interface is in English or Persian. Conversations can be in any language.
+- **Link import** needs Chrome or Microsoft Edge (Edge ships with Windows; on a Mac, install one of them). Claude share links usually block automated browsers; for Claude, paste the text or use the extension.
 - **Chat sites change their pages** from time to time. When that happens, the extension or link import may break until it's updated.
 - **Network:** some chat sites, and OpenRouter itself, may be unreachable from some networks without a VPN.
 
@@ -177,9 +223,13 @@ uv sync                      # install packages (including test tools)
 uv run python -m convohub    # run
 uv run pytest                # tests
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1   # build ConvoHub-Setup.exe (needs Inno Setup 6)
+bash packaging/build_mac.sh  # build ConvoHub-mac-arm64.dmg (on an Apple Silicon Mac)
 ```
 
-- **Architecture and key decisions (Persian):** [docs/DESIGN.md](docs/DESIGN.md)
+GitHub Actions ([`.github/workflows/build.yml`](.github/workflows/build.yml)) runs the tests on Windows and macOS, builds the DMG and smoke-tests it on every push to `main` and every pull request; for a `v*` tag it attaches the DMG to that release.
+
+- **Architecture and key decisions:** [docs/DESIGN.md](docs/DESIGN.md) (فارسی: [docs/fa/DESIGN.md](docs/fa/DESIGN.md))
+- **Persian guides:** every guide in `docs/` has a Persian copy in [`docs/fa/`](docs/fa/).
 - **Stack:** Python, FastAPI and SQLite, with a plain HTML/JS interface and no build step.
 
 ## License

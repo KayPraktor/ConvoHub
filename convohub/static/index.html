@@ -9,6 +9,8 @@
   <script>
     // Apply the saved theme before the page paints (no flash of the wrong theme).
     try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+    // Same for the language direction (i18n.js sets it properly; this avoids a right-to-left flash).
+    try { const l = localStorage.getItem("lang"); if (l === "en") { document.documentElement.lang = "en"; document.documentElement.dir = "ltr"; } } catch {}
   </script>
   <link rel="stylesheet" href="/static/app.css">
 </head>
@@ -33,29 +35,30 @@
   <aside class="sidebar">
     <div class="brand-row">
       <div class="brand">ConvoHub</div>
-      <button id="btn-theme" class="icon-btn" type="button" title="تم: خودکار / روشن / تیره"><svg class="ic" aria-hidden="true"><use href="#i-auto"/></svg>خودکار</button>
+      <span class="brand-tools">
+        <button id="btn-lang" class="icon-btn" type="button" data-i18n="lang.switch" data-i18n-title="lang.switch_title"></button>
+        <button id="btn-theme" class="icon-btn" type="button" data-i18n-title="theme.title"><svg class="ic" aria-hidden="true"><use href="#i-auto"/></svg></button>
+      </span>
     </div>
-    <button id="btn-new-chat" class="primary">+ گفتگوی جدید</button>
-    <button id="btn-import">+ ایمپورت مکالمه</button>
+    <button id="btn-new-chat" class="primary" data-i18n="side.new_chat"></button>
+    <button id="btn-import" data-i18n="side.import"></button>
     <div id="ext-pending" class="ext-pending" hidden></div>
-    <input id="search" type="search" placeholder="جستجو در عنوان و متن…" autocomplete="off">
+    <input id="search" type="search" data-i18n-placeholder="side.search_ph" autocomplete="off">
     <div id="lists" class="lists"></div>
-    <button id="key-warning" class="key-warning" type="button" hidden>
-      هنوز کلید OpenRouter وارد نشده. برای وارد کردنش اینجا رو بزن.
-    </button>
+    <button id="key-warning" class="key-warning" type="button" data-i18n="side.key_warning" hidden></button>
     <div class="side-footer">
-      <button id="btn-settings" class="ghost" title="تنظیمات ایجنت: پوشه‌ها، skillها، سرورهای MCP"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg>ایجنت</button>
-      <button id="btn-memory" class="ghost" title="حافظه: چیزهایی که مدل‌ها درباره‌ی تو و کارهات می‌دونن"><svg class="ic" aria-hidden="true"><use href="#i-memory"/></svg>حافظه<span id="memory-badge" class="count-badge" hidden></span></button>
-      <button id="btn-connect" class="ghost" title="افزونه‌ی مرورگر و وصل کردن Claude Code و بقیه"><svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg>اتصال</button>
-      <button id="btn-key" class="ghost icon-only" title="کلید OpenRouter" aria-label="کلید OpenRouter"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg></button>
-      <button id="btn-backup" class="ghost icon-only" title="بکاپ" aria-label="بکاپ"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg></button>
-      <button id="btn-quit" class="ghost icon-only" title="خاموش کردن ConvoHub" aria-label="خاموش کردن ConvoHub"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg></button>
+      <button id="btn-settings" class="ghost" data-i18n-title="side.agent_title"><svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg><span data-i18n="side.agent"></span></button>
+      <button id="btn-memory" class="ghost" data-i18n-title="side.memory_title"><svg class="ic" aria-hidden="true"><use href="#i-memory"/></svg><span data-i18n="side.memory"></span><span id="memory-badge" class="count-badge" hidden></span></button>
+      <button id="btn-connect" class="ghost" data-i18n-title="side.connect_title"><svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg><span data-i18n="side.connect"></span></button>
+      <button id="btn-key" class="ghost icon-only" data-i18n-title="side.key" data-i18n-aria-label="side.key"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg></button>
+      <button id="btn-backup" class="ghost icon-only" data-i18n-title="side.backup" data-i18n-aria-label="side.backup"><svg class="ic" aria-hidden="true"><use href="#i-archive"/></svg></button>
+      <button id="btn-quit" class="ghost icon-only" data-i18n-title="side.quit" data-i18n-aria-label="side.quit"><svg class="ic" aria-hidden="true"><use href="#i-power"/></svg></button>
     </div>
   </aside>
   <div class="scrim" id="scrim"></div>
   <div class="main">
     <div class="topbar">
-      <button id="btn-menu" class="icon-btn" type="button" title="منو" aria-label="منو"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      <button id="btn-menu" class="icon-btn" type="button" data-i18n-title="top.menu" data-i18n-aria-label="top.menu"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
       <div class="brand">ConvoHub</div>
     </div>
     <main id="view" class="view"></main>
@@ -65,47 +68,47 @@
 <!-- import dialog -->
 <dialog id="import-dialog">
   <form method="dialog" class="dialog-body" id="import-form">
-    <h2>ایمپورت مکالمه</h2>
+    <h2 data-i18n="import.title"></h2>
     <div class="tabs" role="tablist">
-      <button type="button" class="tab active" data-tab="paste">Paste متن</button>
-      <button type="button" class="tab" data-tab="file">فایل</button>
-      <button type="button" class="tab" data-tab="link">لینک share</button>
+      <button type="button" class="tab active" data-tab="paste" data-i18n="import.tab_paste"></button>
+      <button type="button" class="tab" data-tab="file" data-i18n="import.tab_file"></button>
+      <button type="button" class="tab" data-tab="link" data-i18n="import.tab_link"></button>
     </div>
 
     <section data-pane="paste">
-      <p class="hint">توی صفحه‌ی چت Ctrl+A و Ctrl+C بزن و اینجا paste کن.</p>
-      <textarea id="paste-text" rows="10" placeholder="متن مکالمه…"></textarea>
+      <p class="hint" data-i18n="import.paste_hint"></p>
+      <textarea id="paste-text" rows="10" data-i18n-placeholder="import.paste_ph"></textarea>
       <div id="paste-info" class="hint"></div>
     </section>
 
     <section data-pane="file" hidden>
-      <p class="hint">فایل .txt یا .md، یا خروجی رسمی ChatGPT و Claude (conversations.json).</p>
+      <p class="hint" data-i18n="import.file_hint"></p>
       <input id="file-input" type="file" accept=".txt,.md,.markdown,.json">
     </section>
 
     <section data-pane="link" hidden>
-      <p class="hint">لینک share عمومی از Gemini، Grok، ChatGPT (یا Claude). خوندنش تا یه دقیقه طول می‌کشه.</p>
+      <p class="hint" data-i18n="import.link_hint"></p>
       <input id="link-url" type="url" dir="ltr" placeholder="https://gemini.google.com/share/...">
     </section>
 
     <div class="row" id="meta-row">
-      <label>عنوان <input id="import-title" type="text" placeholder="خودکار"></label>
-      <label>منبع
+      <label><span data-i18n="import.field_title"></span> <input id="import-title" type="text" data-i18n-placeholder="import.title_ph"></label>
+      <label><span data-i18n="import.field_source"></span>
         <select id="import-source">
-          <option value="">تشخیص خودکار</option>
+          <option value="" data-i18n="import.source_auto"></option>
           <option value="gemini">Gemini</option>
           <option value="claude">Claude</option>
           <option value="grok">Grok</option>
           <option value="chatgpt">ChatGPT</option>
-          <option value="other">دیگه</option>
+          <option value="other" data-i18n="import.source_other"></option>
         </select>
       </label>
     </div>
 
     <div id="import-error" class="error" hidden></div>
     <div class="dialog-actions">
-      <button type="button" id="import-submit" class="primary">ایمپورت</button>
-      <button type="button" id="import-cancel">انصراف</button>
+      <button type="button" id="import-submit" class="primary" data-i18n="import.submit"></button>
+      <button type="button" id="import-cancel" data-i18n="common.cancel"></button>
     </div>
   </form>
 </dialog>
@@ -113,12 +116,12 @@
 <!-- context picker -->
 <dialog id="context-dialog">
   <div class="dialog-body">
-    <h2>مکالمه‌هایی که مدل ببینه</h2>
-    <input id="context-filter" type="search" placeholder="فیلتر…">
+    <h2 data-i18n="context.title"></h2>
+    <input id="context-filter" type="search" data-i18n-placeholder="context.filter_ph">
     <ul id="context-options" class="context-options"></ul>
     <div class="dialog-actions">
-      <button type="button" id="context-save" class="primary">ذخیره</button>
-      <button type="button" id="context-cancel">انصراف</button>
+      <button type="button" id="context-save" class="primary" data-i18n="common.save"></button>
+      <button type="button" id="context-cancel" data-i18n="common.cancel"></button>
     </div>
   </div>
 </dialog>
@@ -126,35 +129,35 @@
 <!-- agent settings -->
 <dialog id="settings-dialog">
   <div class="dialog-body">
-    <h2>تنظیمات ایجنت</h2>
-    <label class="field">پوشه‌های مجاز (هر خط یه مسیر کامل)
-      <span class="hint">مدل فقط همین‌جاها رو می‌بینه. خوندن همیشه آزاده، حتی وقتی حالت ایجنت خاموشه؛ نوشتن، اجرای دستور و حذف فقط توی حالت ایجنت و هر بار با اجازه‌ی تو انجام میشه. فایل‌هایی مثل <code>.env</code> هیچ‌وقت خونده نمیشن.</span>
+    <h2 data-i18n="settings.title"></h2>
+    <label class="field"><span data-i18n="settings.folders"></span>
+      <span class="hint" data-i18n-html="settings.folders_hint"></span>
       <textarea id="set-folders" rows="3" dir="ltr" placeholder="D:\Projects\MyApp"></textarea>
     </label>
-    <label class="field">پوشه‌های skill (هر خط یه مسیر؛ فقط خوندنی)
-      <span class="hint">هر skill یه پوشه با فایل <code>SKILL.md</code> است.</span>
+    <label class="field"><span data-i18n="settings.skills"></span>
+      <span class="hint" data-i18n-html="settings.skills_hint"></span>
       <textarea id="set-skills" rows="2" dir="ltr" placeholder="%USERPROFILE%\.claude\skills"></textarea>
     </label>
     <ul id="set-skill-list" class="skill-list"></ul>
-    <label class="field">سرورهای MCP (همون فرمت <code>mcpServers</code> بقیه‌ی ابزارها)
-      <span class="hint">ابزارهایی که خودشون رو «فقط‌خواندنی» معرفی کنن آزادن؛ بقیه هر بار اجازه می‌گیرن.</span>
+    <label class="field"><span data-i18n-html="settings.mcp"></span>
+      <span class="hint" data-i18n="settings.mcp_hint"></span>
       <textarea id="set-mcp" rows="7" dir="ltr" placeholder='{"mcpServers": {"name": {"command": "uv", "args": ["..."]}}}'></textarea>
     </label>
-    <div class="field">ابزارهای MCP با «همیشه اجازه بده»
-      <span class="hint">این‌ها بدون پرسیدن اجرا میشن. با × اجازه‌شون پس گرفته میشه (همون لحظه ذخیره میشه).</span>
+    <div class="field"><span data-i18n="settings.always"></span>
+      <span class="hint" data-i18n="settings.always_hint"></span>
       <ul id="set-always" class="skill-list"></ul>
     </div>
-    <div class="field">افزونه‌ی مرورگر
-      <span class="hint">فقط افزونه‌ای که ID‌ش اینجاست می‌تونه به ConvoHub مکالمه بفرسته. ID رو از صفحه‌ی <code>chrome://extensions</code> بردار، یا وقتی افزونه اولین بار وصل میشه از نوار بالای کتابخونه «قبول» رو بزن.</span>
+    <div class="field"><span data-i18n="settings.ext"></span>
+      <span class="hint" data-i18n-html="settings.ext_hint"></span>
       <div class="row">
         <input id="set-ext-id" type="text" dir="ltr" placeholder="abcdefghijklmnopabcdefghijklmnop">
-        <button type="button" id="set-ext-save">ذخیره‌ی ID</button>
+        <button type="button" id="set-ext-save" data-i18n="settings.ext_save"></button>
       </div>
     </div>
     <div id="settings-error" class="error" hidden></div>
     <div class="dialog-actions">
-      <button type="button" id="settings-save" class="primary">ذخیره</button>
-      <button type="button" id="settings-cancel">انصراف</button>
+      <button type="button" id="settings-save" class="primary" data-i18n="common.save"></button>
+      <button type="button" id="settings-cancel" data-i18n="common.cancel"></button>
     </div>
   </div>
 </dialog>
@@ -162,21 +165,18 @@
 <!-- OpenRouter key -->
 <dialog id="key-dialog">
   <form method="dialog" class="dialog-body" id="key-form">
-    <h2>کلید OpenRouter</h2>
-    <p class="hint">
-      ConvoHub برای حرف زدن با مدل‌ها از <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">OpenRouter</a> استفاده می‌کنه.
-      اونجا یه حساب بساز، کمی اعتبار بخر و از صفحه‌ی Keys یه کلید بساز (با <code>sk-or-</code> شروع میشه).
-    </p>
+    <h2 data-i18n="key.title"></h2>
+    <p class="hint" data-i18n-html="key.intro"></p>
     <div id="key-state" class="key-state"></div>
-    <label class="field">کلید
+    <label class="field"><span data-i18n="key.field"></span>
       <input id="key-input" type="password" dir="ltr" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…">
     </label>
-    <p class="hint">کلید فقط روی همین کامپیوتر و رمزنگاری‌شده با حساب ویندوزت ذخیره میشه؛ توی بکاپ‌ها نمیره و هیچ‌جا کامل نشون داده نمیشه.</p>
+    <p class="hint" data-i18n="key.storage_hint"></p>
     <div id="key-error" class="error" hidden></div>
     <div class="dialog-actions">
-      <button type="button" id="key-save" class="primary">ذخیره و بررسی</button>
-      <button type="button" id="key-remove" class="danger" hidden>پاک کردن کلید ذخیره‌شده</button>
-      <button type="button" id="key-close">بستن</button>
+      <button type="button" id="key-save" class="primary" data-i18n="key.save"></button>
+      <button type="button" id="key-remove" class="danger" data-i18n="key.remove" hidden></button>
+      <button type="button" id="key-close" data-i18n="common.close"></button>
     </div>
   </form>
 </dialog>
@@ -184,107 +184,111 @@
 <!-- connect: browser extension + MCP for other tools -->
 <dialog id="connect-dialog" class="wide">
   <div class="dialog-body">
-    <h2>اتصال</h2>
+    <h2 data-i18n="connect.title"></h2>
     <div class="tabs">
-      <button type="button" class="tab active" data-ctab="ext">افزونه‌ی مرورگر</button>
-      <button type="button" class="tab" data-ctab="mcp">Claude Code و بقیه</button>
-      <button type="button" class="tab" data-ctab="remote">Gemini و سرویس‌های آنلاین</button>
+      <button type="button" class="tab active" data-ctab="ext" data-i18n="connect.tab_ext"></button>
+      <button type="button" class="tab" data-ctab="mcp" data-i18n="connect.tab_mcp"></button>
+      <button type="button" class="tab" data-ctab="remote" data-i18n="connect.tab_remote"></button>
     </div>
     <section data-cpane="ext" class="connect-pane">
-      <p class="hint">با افزونه، چتی که توی Chrome یا Edge باز کردی (Gemini، ChatGPT، Claude، Grok) با یه کلیک میاد توی کتابخونه و پیام‌های جدیدش خودکار اضافه میشن.</p>
+      <p class="hint" data-i18n="connect.ext.intro"></p>
       <ol class="howto">
-        <li>پوشه‌ی افزونه: <code id="ext-dir" dir="ltr"></code>
-          <div class="row-btns"><button type="button" id="ext-open">باز کردن پوشه</button><button type="button" class="copy" data-copy-from="ext-dir">کپی مسیر</button></div></li>
-        <li>توی Chrome بنویس <code dir="ltr">chrome://extensions</code> (توی Edge: <code dir="ltr">edge://extensions</code>) و Enter بزن.</li>
-        <li><b>Developer mode</b> (حالت توسعه‌دهنده) رو روشن کن.</li>
-        <li><b>Load unpacked</b> رو بزن و همون پوشه‌ی بالا رو انتخاب کن.</li>
-        <li>یه صفحه‌ی چت (مثلاً یه مکالمه‌ی ChatGPT) رو باز یا refresh کن. اینجا، بالای کتابخونه، نوار «یه افزونه می‌خواد وصل بشه» میاد: <b>قبول</b> رو بزن.</li>
-        <li>حالا روی صفحه‌ی چت، پایین سمت راست، دکمه‌ی «بفرست به ConvoHub» رو بزن.</li>
+        <li><span data-i18n="connect.ext.step1"></span> <code id="ext-dir" dir="ltr"></code>
+          <div class="row-btns"><button type="button" id="ext-open" data-i18n="connect.ext.open_folder"></button><button type="button" class="copy" data-copy-from="ext-dir" data-i18n="connect.ext.copy_path"></button></div></li>
+        <li data-i18n-html="connect.ext.step2"></li>
+        <li data-i18n-html="connect.ext.step3"></li>
+        <li data-i18n-html="connect.ext.step4"></li>
+        <li data-i18n-html="connect.ext.step5"></li>
+        <li data-i18n="connect.ext.step6"></li>
       </ol>
       <div id="ext-state" class="hint"></div>
     </section>
     <section data-cpane="mcp" class="connect-pane" hidden>
-      <p class="hint">با این‌ها ابزارهای دیگه (Claude Code، Hermes، OpenCode، Cline) هم کتابخونه‌ت رو می‌بینن. مسیرها مخصوص همین کامپیوترن. لازم نیست ConvoHub روشن باشه.</p>
-      <div class="snippet"><h3>Claude Code <span class="hint">(یه بار توی ترمینال بزن)</span></h3><pre id="mcp-claude" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-claude">کپی</button></div>
-      <div class="snippet"><h3>Hermes <span class="hint">(یه بار توی ترمینال بزن)</span></h3><pre id="mcp-hermes" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-hermes">کپی</button></div>
-      <div class="snippet"><h3>OpenCode <span class="hint">(داخل بخش <code>"mcp"</code> فایل <code dir="ltr">%USERPROFILE%\.config\opencode\opencode.jsonc</code>)</span></h3><pre id="mcp-opencode" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-opencode">کپی</button></div>
-      <div class="snippet"><h3>Cline <span class="hint">(پنل Cline ← MCP Servers ← Configure، داخل <code>"mcpServers"</code>)</span></h3><pre id="mcp-cline" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-cline">کپی</button></div>
+      <p class="hint" data-i18n="connect.mcp.intro"></p>
+      <div class="snippet"><h3>Claude Code <span class="hint" data-i18n="connect.mcp.run_once"></span></h3><pre id="mcp-claude" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-claude" data-i18n="common.copy"></button></div>
+      <div class="snippet"><h3>Hermes <span class="hint" data-i18n="connect.mcp.run_once"></span></h3><pre id="mcp-hermes" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-hermes" data-i18n="common.copy"></button></div>
+      <div class="snippet"><h3>OpenCode <span class="hint" data-i18n-html="connect.mcp.opencode_where"></span></h3><pre id="mcp-opencode" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-opencode" data-i18n="common.copy"></button></div>
+      <div class="snippet"><h3>Cline <span class="hint" data-i18n-html="connect.mcp.cline_where"></span></h3><pre id="mcp-cline" dir="ltr"></pre><button type="button" class="copy" data-copy-from="mcp-cline" data-i18n="common.copy"></button></div>
     </section>
     <section data-cpane="remote" class="connect-pane" hidden>
-      <p class="hint">بعضی برنامه‌ها، مثل <b>Gemini</b>، سرور MCP رو از سرورهای خودشون صدا می‌زنن، پس به ConvoHub روی کامپیوترت نمی‌رسن و یه آدرس
-        <code dir="ltr">https://</code> می‌خوان. اینجا با سه قدم یه آدرس موقت و <b>فقط‌خوندنی</b> براشون می‌سازی.</p>
+      <p class="hint" data-i18n-html="connect.remote.intro"></p>
       <div class="remote-warn">
-        <b>قبل از روشن کردن بدون:</b>
+        <b data-i18n="connect.remote.warn_title"></b>
         <ul>
-          <li>تا وقتی روشنه، هر کی این آدرس رو داشته باشه می‌تونه کتابخونه و حافظه‌ت رو <b>بخونه</b> (فقط خوندن؛ هیچی اضافه یا عوض نمیشه). آدرس رو به کسی نده.</li>
-          <li>چیزهایی که Gemini می‌خونه به سرورهای Google میرن.</li>
-          <li>آدرس هر بار که روشن می‌کنی عوض میشه؛ با بستن ConvoHub هم خودش خاموش میشه.</li>
+          <li data-i18n-html="connect.remote.warn1"></li>
+          <li data-i18n="connect.remote.warn2"></li>
+          <li data-i18n="connect.remote.warn3"></li>
         </ul>
       </div>
 
       <div class="rstep" id="rstep-1">
-        <div class="rstep-head"><span class="rstep-n">۱</span><b>ابزار تونل Cloudflare</b><span class="rstep-state" id="rstep-1-state"></span></div>
+        <div class="rstep-head"><span class="rstep-n" data-i18n="connect.remote.n1"></span><b data-i18n="connect.remote.step1_title"></b><span class="rstep-state" id="rstep-1-state"></span></div>
         <div class="rstep-body" id="rstep-1-body">
-          <p class="hint">یه برنامه‌ی رایگان و رسمی از Cloudflare (<code dir="ltr">cloudflared</code>) که آدرس اینترنتی رو می‌سازه. حساب لازم نداره.
-            ConvoHub خودش از سایت رسمی Cloudflare روی GitHub دانلودش می‌کنه (حدود ۵۵ مگ)، امضای دیجیتالش رو چک می‌کنه و توی پوشه‌ی خودش نگه می‌داره.</p>
+          <p class="hint" data-i18n-html="connect.remote.step1_hint"></p>
           <div class="remote-row">
-            <button type="button" id="remote-install" class="primary">نصب خودکار</button>
+            <button type="button" id="remote-install" class="primary" data-i18n="connect.remote.install"></button>
             <div class="progress" id="remote-progress" hidden><div id="remote-progress-bar"></div></div>
             <span id="remote-install-state" class="hint"></span>
+          </div>
+          <!-- where ConvoHub can't install cloudflared itself (macOS: Homebrew) -->
+          <div id="remote-manual" hidden>
+            <p class="hint" id="remote-install-hint"></p>
+            <div class="snippet" id="remote-brew-box" hidden><pre id="remote-brew" dir="ltr">brew install cloudflared</pre><button type="button" class="copy" data-copy-from="remote-brew" data-i18n="common.copy"></button></div>
+            <button type="button" id="remote-recheck" class="primary" data-i18n="connect.remote.check_again"></button>
           </div>
         </div>
       </div>
 
       <div class="rstep" id="rstep-2">
-        <div class="rstep-head"><span class="rstep-n">۲</span><b>روشن کردن آدرس</b><span class="rstep-state" id="rstep-2-state"></span></div>
+        <div class="rstep-head"><span class="rstep-n" data-i18n="connect.remote.n2"></span><b data-i18n="connect.remote.step2_title"></b><span class="rstep-state" id="rstep-2-state"></span></div>
         <div class="rstep-body">
           <div class="remote-row">
-            <button type="button" id="remote-toggle" class="primary">روشن کردن آدرس اینترنتی</button>
+            <button type="button" id="remote-toggle" class="primary" data-i18n="connect.remote.turn_on"></button>
             <span id="remote-state" class="hint"></span>
           </div>
         </div>
       </div>
 
       <div class="rstep" id="rstep-3">
-        <div class="rstep-head"><span class="rstep-n">۳</span><b>وصل کردن Gemini</b></div>
+        <div class="rstep-head"><span class="rstep-n" data-i18n="connect.remote.n3"></span><b data-i18n="connect.remote.step3_title"></b></div>
         <div class="rstep-body" id="remote-on" hidden>
           <div class="remote-url-row">
             <pre id="remote-url" dir="ltr"></pre>
-            <button type="button" class="copy primary" data-copy-from="remote-url">کپی آدرس</button>
+            <button type="button" class="copy primary" data-copy-from="remote-url" data-i18n="connect.remote.copy_url"></button>
           </div>
           <ol class="howto">
-            <li>توی Gemini، از تنظیمات، <b>Developer Mode</b> رو باز کن و <b>Connect to an MCP server</b> رو بزن.</li>
-            <li>آدرس رو توی <b>MCP Server URL</b> بذار. Client ID و Secret رو خالی بذار و <b>Next</b> رو بزن.</li>
-            <li>صفحه‌ی بعد رو بخون؛ اگه موافقی تیک «I understand…» رو بزن و <b>Connect</b>.</li>
-            <li>بالای پنل Developer Mode، <b>ConvoHub</b> رو انتخاب کن و توی چت بپرس: «از کتابخونه‌ی ConvoHub مکالمه‌ی … رو بخون».</li>
+            <li data-i18n-html="connect.remote.gemini1"></li>
+            <li data-i18n-html="connect.remote.gemini2"></li>
+            <li data-i18n-html="connect.remote.gemini3"></li>
+            <li data-i18n-html="connect.remote.gemini4"></li>
           </ol>
-          <p class="hint">دفعه‌ی بعد که روشنش کنی، آدرس عوض میشه؛ اتصال قبلی رو توی Gemini پاک کن و آدرس جدید رو بذار.</p>
-          <h3 class="remote-calls-title">آخرین درخواست‌ها</h3>
+          <p class="hint" data-i18n="connect.remote.next_time"></p>
+          <h3 class="remote-calls-title" data-i18n="connect.remote.calls_title"></h3>
           <ul id="remote-calls" class="remote-calls"></ul>
         </div>
-        <p class="hint" id="remote-off-hint">بعد از قدم ۲، آدرس و راهنمای وصل کردن اینجا میاد.</p>
+        <p class="hint" id="remote-off-hint" data-i18n="connect.remote.off_hint"></p>
       </div>
       <div id="remote-error" class="error" hidden></div>
     </section>
-    <div class="dialog-actions"><button type="button" id="connect-close">بستن</button></div>
+    <div class="dialog-actions"><button type="button" id="connect-close" data-i18n="common.close"></button></div>
   </div>
 </dialog>
 
 <!-- handoff: continue this chat in the original AI chat or in another chatbot -->
 <dialog id="handoff-dialog" class="wide">
   <div class="dialog-body">
-    <h2>ادامه در جای دیگه</h2>
+    <h2 data-i18n="handoff.title"></h2>
     <div class="ho-choice" role="radiogroup">
       <label class="ho-card"><input type="radio" name="ho-target" value="original">
-        <span><b>برگشت به مکالمه‌ی اصلی</b><small>مثلاً همون چت Gemini. فقط چیزهایی که اینجا اضافه شد فرستاده میشه، چون قبلی‌ها رو خودش داره.</small></span></label>
+        <span><b data-i18n="handoff.original"></b><small data-i18n="handoff.original_desc"></small></span></label>
       <label class="ho-card"><input type="radio" name="ho-target" value="new">
-        <span><b>بردن به یه چت‌بات دیگه</b><small>اون هیچی نمی‌دونه، پس کل ماجرا میره: مرجع‌ها (یا خلاصه‌شون) و همین گفتگو.</small></span></label>
+        <span><b data-i18n="handoff.new"></b><small data-i18n="handoff.new_desc"></small></span></label>
     </div>
     <div class="ho-options">
-      <label id="ho-since-wrap" class="inline"><input type="checkbox" id="ho-since" checked> <span id="ho-since-label">فقط پیام‌های بعد از هندآف قبلی</span></label>
+      <label id="ho-since-wrap" class="inline"><input type="checkbox" id="ho-since" checked> <span id="ho-since-label" data-i18n="handoff.since_last"></span></label>
       <span class="ho-format">
-        <label class="inline"><input type="radio" name="ho-format" value="full" checked> متن کامل</label>
-        <label class="inline"><input type="radio" name="ho-format" value="brief"> خلاصه با مدل</label>
+        <label class="inline"><input type="radio" name="ho-format" value="full" checked> <span data-i18n="handoff.format_full"></span></label>
+        <label class="inline"><input type="radio" name="ho-format" value="brief"> <span data-i18n="handoff.format_brief"></span></label>
       </span>
     </div>
     <div id="ho-origin" class="hint"></div>
@@ -292,10 +296,10 @@
     <div id="ho-meta" class="hint"></div>
     <div id="ho-error" class="error" hidden></div>
     <div class="dialog-actions">
-      <button type="button" id="ho-copy" class="primary"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>کپی</button>
-      <button type="button" id="ho-file"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>دانلود فایل ‎.md</button>
-      <button type="button" id="ho-ext" title="چت مقصد رو توی مرورگرت باز کن؛ افزونه متن رو توی جعبه‌ی پیام می‌ذاره و خودت Send رو می‌زنی.">بفرست به افزونه</button>
-      <button type="button" id="ho-close">بستن</button>
+      <button type="button" id="ho-copy" class="primary"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span data-i18n="common.copy"></span></button>
+      <button type="button" id="ho-file"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="handoff.download"></span></button>
+      <button type="button" id="ho-ext" data-i18n-title="handoff.ext_title" data-i18n="handoff.ext"></button>
+      <button type="button" id="ho-close" data-i18n="common.close"></button>
     </div>
   </div>
 </dialog>
@@ -303,38 +307,37 @@
 <!-- memory: notes about the user, sent to the models -->
 <dialog id="memory-dialog" class="wide">
   <div class="dialog-body">
-    <h2>حافظه</h2>
-    <p class="hint">چیزهایی درباره‌ی خودت و کارهات که می‌خوای هر مدلی بدونه، تا لازم نباشه هر بار توضیح بدی.
-      با هر پیام برای همون مدلی که انتخاب کردی فرستاده میشن. مدل‌ها فقط می‌تونن <b>پیشنهاد</b> بدن؛ چیزی بدون تأیید تو ذخیره نمیشه.</p>
-    <label class="inline mem-switch"><input type="checkbox" id="memory-enabled"> استفاده از حافظه توی گفتگوها (هر گفتگو هم کلید خودش رو بالای صفحه داره)</label>
+    <h2 data-i18n="memory.title"></h2>
+    <p class="hint" data-i18n-html="memory.intro"></p>
+    <label class="inline mem-switch"><input type="checkbox" id="memory-enabled"> <span data-i18n="memory.enabled"></span></label>
     <form id="memory-add" class="mem-add">
-      <input id="memory-input" type="text" maxlength="500" placeholder="مثلاً: جواب‌ها رو کوتاه و فارسی محاوره‌ای بده" autocomplete="off">
-      <button type="submit" class="primary">اضافه کن</button>
+      <input id="memory-input" type="text" maxlength="500" data-i18n-placeholder="memory.input_ph" autocomplete="off">
+      <button type="submit" class="primary" data-i18n="memory.add"></button>
     </form>
     <section id="memory-suggested" class="mem-section" hidden>
-      <h3>پیشنهادها <span class="hint">(تا تأیید نکنی، فرستاده نمیشن)</span></h3>
+      <h3><span data-i18n="memory.suggested"></span> <span class="hint" data-i18n="memory.suggested_hint"></span></h3>
       <ul class="mem-list" id="memory-suggested-list"></ul>
     </section>
     <section class="mem-section">
-      <h3>یادداشت‌ها</h3>
+      <h3 data-i18n="memory.notes"></h3>
       <ul class="mem-list" id="memory-list"></ul>
     </section>
     <div id="memory-meta" class="hint"></div>
     <div id="memory-error" class="error" hidden></div>
-    <div class="dialog-actions"><button type="button" id="memory-close">بستن</button></div>
+    <div class="dialog-actions"><button type="button" id="memory-close" data-i18n="common.close"></button></div>
   </div>
 </dialog>
 
 <!-- extract notes for memory from a conversation -->
 <dialog id="extract-dialog" class="wide">
   <div class="dialog-body">
-    <h2>نکته‌ها برای حافظه</h2>
+    <h2 data-i18n="extract.title"></h2>
     <p class="hint" id="extract-intro"></p>
     <ul class="mem-list" id="extract-list"></ul>
     <div id="extract-meta" class="hint"></div>
     <div class="dialog-actions">
-      <button type="button" id="extract-save" class="primary">ذخیره‌ی انتخاب‌شده‌ها</button>
-      <button type="button" id="extract-close">بستن</button>
+      <button type="button" id="extract-save" class="primary" data-i18n="extract.save"></button>
+      <button type="button" id="extract-close" data-i18n="common.close"></button>
     </div>
   </div>
 </dialog>
@@ -342,35 +345,32 @@
 <!-- backups -->
 <dialog id="backup-dialog">
   <div class="dialog-body">
-    <h2>بکاپ کتابخونه</h2>
-    <p class="hint">
-      هر روز که برنامه روشن باشه یه بکاپ خودکار گرفته میشه (۱۴ تای آخر نگه داشته میشن). بکاپ‌هایی که خودت می‌گیری هیچ‌وقت خودکار پاک نمیشن.
-      بهتره پوشه‌ی بکاپ روی یه درایو دیگه یا یه پوشه‌ی همگام با Google Drive / OneDrive باشه.
-    </p>
-    <label class="field">پوشه‌ی بکاپ
-      <span class="hint">خالی بذاری، کنار دیتابیس (<code>data\backups</code>) ذخیره میشه.</span>
+    <h2 data-i18n="backup.title"></h2>
+    <p class="hint" data-i18n="backup.intro"></p>
+    <label class="field"><span data-i18n="backup.folder"></span>
+      <span class="hint" data-i18n-html="backup.folder_hint"></span>
       <div class="row">
         <input id="backup-folder" type="text" dir="ltr" placeholder="D:\Backups\ConvoHub">
-        <button type="button" id="backup-folder-save">ذخیره</button>
+        <button type="button" id="backup-folder-save" data-i18n="common.save"></button>
       </div>
     </label>
-    <div><button type="button" id="backup-now" class="primary">همین الان بکاپ بگیر</button></div>
+    <div><button type="button" id="backup-now" class="primary" data-i18n="backup.now"></button></div>
     <div id="backup-msg" class="hint"></div>
     <ul id="backup-list" class="backup-list"></ul>
     <details class="hint">
-      <summary>برگردوندن یه بکاپ</summary>
-      برنامه رو ببند، فایل <code>data\convohub.db</code> رو یه جا کنار بذار، فایل بکاپ رو جاش کپی کن و اسمش رو <code>convohub.db</code> بذار، بعد برنامه رو دوباره باز کن.
+      <summary data-i18n="backup.restore"></summary>
+      <span data-i18n-html="backup.restore_steps"></span>
     </details>
-    <div class="dialog-actions"><button type="button" id="backup-close">بستن</button></div>
+    <div class="dialog-actions"><button type="button" id="backup-close" data-i18n="common.close"></button></div>
   </div>
 </dialog>
 
 <!-- agent log -->
 <dialog id="log-dialog">
   <div class="dialog-body">
-    <h2>لاگ کارهای ایجنت</h2>
+    <h2 data-i18n="log.title"></h2>
     <div id="log-entries" class="log-entries"></div>
-    <div class="dialog-actions"><button type="button" id="log-close">بستن</button></div>
+    <div class="dialog-actions"><button type="button" id="log-close" data-i18n="common.close"></button></div>
   </div>
 </dialog>
 
@@ -380,13 +380,16 @@
     <div id="ui-message" class="ui-message"></div>
     <input id="ui-input" type="text" hidden>
     <div class="dialog-actions">
-      <button type="submit" id="ui-ok" class="primary" value="ok">باشه</button>
-      <button type="button" id="ui-cancel">انصراف</button>
+      <button type="submit" id="ui-ok" class="primary" value="ok" data-i18n="common.ok"></button>
+      <button type="button" id="ui-cancel" data-i18n="common.cancel"></button>
     </div>
   </form>
 </dialog>
 
 <datalist id="models-dl"></datalist>
+<script src="/static/i18n.js"></script>
+<script src="/static/locales/html.js"></script>
+<script src="/static/locales/app.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

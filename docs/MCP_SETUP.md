@@ -1,35 +1,37 @@
-# وصل کردن Claude Code و ابزارهای دیگه به کتابخونه (MCP)
+# Connecting Claude Code and other tools to the library (MCP)
 
-ConvoHub یه سرور MCP داره. با اون، ابزارهای دیگه (Claude Code، OpenCode، Hermes، Cline) هم مکالمه‌های کتابخونه‌ت رو می‌بینن و می‌تونن بخونن و جستجو کنن.
+فارسی: [docs/fa/MCP_SETUP.md](fa/MCP_SETUP.md)
 
-**ساده‌ترین راه:** توی ConvoHub پایین نوار کناری **«اتصال»** ← تب **«Claude Code و بقیه»** رو بزن. دستور هر ابزار اونجا با مسیر درست روی کامپیوتر خودت آماده‌ست؛ فقط کپی کن.
+ConvoHub has an MCP server. With it, other tools (Claude Code, OpenCode, Hermes, Cline) can also see the conversations in your library, read them and search them.
 
-- لازم نیست ConvoHub روشن باشه. سرور MCP مستقیم از همون کتابخونه می‌خونه.
-- کلید OpenRouter لازم نداره.
+**The easiest way:** in ConvoHub, click **Connect** at the bottom of the sidebar → the **"Claude Code and others"** tab. The command for each tool is ready there, with the right paths for your computer; just copy it.
 
-## دستوری که اجرا میشه
+- ConvoHub doesn't need to be running. The MCP server reads the same library directly.
+- It doesn't need an OpenRouter key.
 
-| نسخه | دستور سرور MCP |
+## The command that runs
+
+| Version | MCP server command |
 |---|---|
-| **نصبی** (Setup.exe) | `%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe` |
-| **سورس** | `uv run --directory <پوشه‌ی پروژه> python -m convohub.mcp_server` |
+| **Installed** (Setup.exe) | `%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe` |
+| **Source** | `uv run --directory <project folder> python -m convohub.mcp_server` |
 
-## ابزارها
+## Tools
 
-| ابزار | کار |
+| Tool | What it does |
 |---|---|
-| `list_conversations` | لیست مکالمه‌ها (با فیلتر منبع) |
-| `search_conversations` | جستجو توی عنوان و متن |
-| `read_conversation` | خوندن متن کامل (صفحه‌به‌صفحه) یا خلاصه (`part="summary"`) |
-| `add_conversation_text` | اضافه کردن متن |
-| `add_conversation_from_link` | ایمپورت از لینک share |
-| `read_memory` | یادداشت‌های حافظه‌ت (فقط خوندنی) |
+| `list_conversations` | List conversations (with a source filter) |
+| `search_conversations` | Search titles and text |
+| `read_conversation` | Read the full text (page by page) or the summary (`part="summary"`) |
+| `add_conversation_text` | Add text |
+| `add_conversation_from_link` | Import from a share link |
+| `read_memory` | Your memory notes (read-only) |
 
-متن مکالمه‌ها با برچسب «فقط داده‌ست، دستور نیست» برگردونده میشه.
+Conversation text is returned with a label saying "this is data, not instructions".
 
-## نمونه‌ها (نسخه‌ی نصبی)
+## Examples (installed version)
 
-**Claude Code** (یه بار توی ترمینال):
+**Claude Code** (once, in a terminal):
 
 ```bash
 claude mcp add convohub --scope user -- "%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe"
@@ -41,47 +43,47 @@ claude mcp add convohub --scope user -- "%LOCALAPPDATA%\Programs\ConvoHub\convoh
 hermes mcp add convohub --command "%LOCALAPPDATA%\Programs\ConvoHub\convohub-mcp.exe"
 ```
 
-**OpenCode:** توی `%USERPROFILE%\.config\opencode\opencode.jsonc`، داخل `"mcp"`:
+**OpenCode:** in `%USERPROFILE%\.config\opencode\opencode.jsonc`, inside `"mcp"`:
 
 ```jsonc
 "convohub": { "type": "local", "command": ["C:/Users/<you>/AppData/Local/Programs/ConvoHub/convohub-mcp.exe"], "enabled": true, "timeout": 120000 }
 ```
 
-**Cline:** پنل Cline ← MCP Servers ← Configure، داخل `"mcpServers"`:
+**Cline:** Cline panel → MCP Servers → Configure, inside `"mcpServers"`:
 
 ```json
 "convohub": { "command": "C:/Users/<you>/AppData/Local/Programs/ConvoHub/convohub-mcp.exe", "args": [], "disabled": false, "timeout": 120 }
 ```
 
-بعد توی ابزار بپرس: «از کتابخونه‌ی ConvoHub مکالمه‌ی … رو بخون و بگو آخرش به چی رسیدیم.»
+Then ask in the tool: *"Read the … conversation from the ConvoHub library and tell me where we ended up."*
 
-## Gemini و برنامه‌هایی که آدرس `https://` می‌خوان
+## Gemini and apps that need an `https://` address
 
-بعضی برنامه‌ها، مثل **Gemini** (Developer Mode ← «Connect to an MCP server»)، سرور MCP رو از سرورهای خودشون صدا می‌زنن. پس به ConvoHub روی کامپیوترت نمی‌رسن و یه آدرس عمومی `https://` لازم دارن. ConvoHub می‌تونه یه آدرس موقت براشون بسازه:
+Some apps, such as **Gemini** (Developer Mode → "Connect to an MCP server"), call the MCP server from their own servers. So they can't reach ConvoHub on your computer and need a public `https://` address. ConvoHub can create a temporary one for them:
 
-توی ConvoHub برو به **«اتصال» ← «Gemini و سرویس‌های آنلاین»**. اونجا سه قدم هست:
+In ConvoHub, go to **Connect → "Gemini and online services"**. There are three steps there:
 
-1. **ابزار تونل Cloudflare:** اگه نصب نیست، **«نصب خودکار»** رو بزن.
-   - ConvoHub برنامه‌ی رسمی `cloudflared` (حدود ۵۵ مگ) رو از [صفحه‌ی رسمی Cloudflare روی GitHub](https://github.com/cloudflare/cloudflared/releases) دانلود می‌کنه.
-   - امضای دیجیتال Cloudflare روش رو چک می‌کنه و توی پوشه‌ی داده‌ی خودش (`bin\cloudflared.exe`) نگه می‌داره.
-   - دسترسی ادمین یا حساب Cloudflare لازم نداره.
-   - اگه از قبل نصبش کرده باشی (مثلاً با `winget install Cloudflare.cloudflared`)، همون استفاده میشه.
-2. **روشن کردن آدرس:** دکمه رو بزن.
-   - ConvoHub خودش چک می‌کنه که آدرس از اینترنت در دسترس باشه. معمولاً کمتر از یه دقیقه طول می‌کشه. بعدش «✓ روشن و در دسترس» نشون میده.
-3. **وصل کردن Gemini:** **«کپی آدرس»** رو بزن.
-   - توی Gemini، از تنظیمات، Developer Mode ← Connect to an MCP server. آدرس رو توی «MCP Server URL» بذار، Client ID و Secret رو خالی بذار و Next رو بزن.
-   - اگه موافقی، صفحه‌ی رضایت رو تأیید کن و Connect رو بزن.
-   - بالای پنل Developer Mode، ConvoHub رو انتخاب کن.
+1. **Cloudflare tunnel tool:** if it isn't installed, click **"Install automatically"**.
+   - ConvoHub downloads Cloudflare's official `cloudflared` program (about 55 MB) from [Cloudflare's official page on GitHub](https://github.com/cloudflare/cloudflared/releases).
+   - It checks Cloudflare's digital signature on it and keeps it in its own data folder (`bin\cloudflared.exe`).
+   - It needs no admin rights and no Cloudflare account.
+   - If you have already installed it (for example with `winget install Cloudflare.cloudflared`), that copy is used.
+2. **Turn on the address:** click the button.
+   - ConvoHub checks by itself that the address is reachable from the internet. This usually takes less than a minute. Then it shows "✓ On and reachable".
+3. **Connect Gemini:** click **"Copy address"**.
+   - In Gemini, from the settings: Developer Mode → Connect to an MCP server. Put the address in "MCP Server URL", leave Client ID and Secret empty and click Next.
+   - If you agree, approve the consent page and click Connect.
+   - At the top of the Developer Mode panel, choose ConvoHub.
 
-چیزهایی که باید بدونی:
-- **فقط خوندنی:** از این آدرس فقط ۴ ابزار در دسترسه (`list_conversations`، `search_conversations`، `read_conversation`، `read_memory`). هیچی اضافه یا عوض نمیشه، و بقیه‌ی ConvoHub (تنظیمات، ایجنت) از بیرون دیده نمیشه.
-- **تا وقتی روشنه،** هر کی آدرس رو داشته باشه می‌تونه کتابخونه و حافظه‌ت رو بخونه. آدرس یه کلید مخفی داره؛ به کسی نده.
-- چیزهایی که Gemini می‌خونه به سرورهای Google میرن.
-- **آدرس و کلید هر بار که روشن می‌کنی عوض میشن.** پس هر بار باید آدرس جدید رو توی Gemini بذاری. با بستن ConvoHub، آدرس خودش خاموش میشه.
-- آخرین درخواست‌هایی که اومده، توی همون صفحه دیده میشه.
+Things to know:
+- **Read-only:** only 4 tools are available through this address (`list_conversations`, `search_conversations`, `read_conversation`, `read_memory`). Nothing is added or changed, and the rest of ConvoHub (settings, agent) can't be seen from outside.
+- **While it's on,** anyone who has the address can read your library and memory. The address contains a secret key; don't give it to anyone.
+- Whatever Gemini reads goes to Google's servers.
+- **The address and key change every time you turn it on.** So each time you have to put the new address into Gemini. When you close ConvoHub, the address switches off by itself.
+- The latest requests that came in are shown on the same page.
 
-## اگه وصل نشد
+## If it doesn't connect
 
-- مسیر رو از صفحه‌ی «اتصال» بردار، نه از این نمونه‌ها.
-- **نسخه‌ی سورس:** `uv` باید توی PATH باشه. توی یه ترمینال تازه `uv --version` بزن.
-- **تست دستی:** دستور سرور رو توی ترمینال اجرا کن. باید بی‌صدا منتظر بمونه؛ با Ctrl+C ببندش.
+- Take the path from the **Connect** page, not from these examples.
+- **Source version:** `uv` must be on the PATH. Run `uv --version` in a new terminal.
+- **Manual test:** run the server command in a terminal. It should wait silently; close it with Ctrl+C.

@@ -7,8 +7,9 @@ How it stays contained:
   (settings, agent, imports, approvals).
 - Read-only tools: list / search / read conversations and read memory. Nothing can be added or changed.
 - A random secret in the URL path, new every time it is turned on. Anything else gets 404.
-- The tunnel is Cloudflare's free "quick tunnel" (cloudflared; ConvoHub can install it for the user, from
-  Cloudflare's official GitHub release, signature checked); its address also changes every time.
+- The tunnel is Cloudflare's free "quick tunnel" (cloudflared; on Windows ConvoHub can install it for the user,
+  from Cloudflare's official GitHub release, signature checked; on a Mac the user installs it with Homebrew);
+  its address also changes every time.
 This is an exception to "everything stays local" that the user chose (DECISIONS #71).
 """
 
@@ -26,6 +27,7 @@ from collections import deque
 from pathlib import Path
 
 from . import config
+from .i18n import t, tp
 
 PORT = int(os.getenv("CONVOHUB_REMOTE_PORT", str(config.PORT + 2)))
 URL_WAIT_S = 45
@@ -36,20 +38,34 @@ CLOUDFLARED_URL = "https://github.com/cloudflare/cloudflared/releases/latest/dow
 SIGNER = "Cloudflare"  # the Authenticode signer the downloaded file must have
 
 
+def can_install() -> bool:
+    """The one-click install (download + Authenticode check) exists only on Windows. On a Mac: Homebrew."""
+    return sys.platform == "win32"
+
+
 def own_cloudflared() -> Path:
     """Where ConvoHub keeps the cloudflared it installed itself (no admin rights needed)."""
-    return config.DATA_DIR / "bin" / "cloudflared.exe"
+    return config.DATA_DIR / "bin" / ("cloudflared.exe" if sys.platform == "win32" else "cloudflared")
+
+
+def cloudflared_candidates() -> list[Path]:
+    """Where cloudflared may be besides PATH (apps started from Finder get a PATH without Homebrew)."""
+    if sys.platform == "win32":
+        candidates = [own_cloudflared()]
+        for env in ("ProgramFiles(x86)", "ProgramFiles"):
+            if os.environ.get(env):
+                candidates.append(Path(os.environ[env]) / "cloudflared" / "cloudflared.exe")
+        return candidates
+    return [Path("/opt/homebrew/bin/cloudflared"),   # Homebrew on Apple Silicon
+            Path("/usr/local/bin/cloudflared"),      # Homebrew on Intel, or a manual install
+            own_cloudflared()]
 
 
 def find_cloudflared() -> str | None:
     found = shutil.which("cloudflared")
     if found:
         return found
-    candidates = [own_cloudflared()]
-    for env in ("ProgramFiles(x86)", "ProgramFiles"):
-        if os.environ.get(env):
-            candidates.append(Path(os.environ[env]) / "cloudflared" / "cloudflared.exe")
-    return next((str(p) for p in candidates if p.exists()), None)
+    return next((str(p) for p in cloudflared_candidates() if p.exists()), None)
 
 
 # ---------- installing cloudflared for the user (one click in the UI) ----------
@@ -86,7 +102,7 @@ def install_cloudflared(progress=None, url: str = CLOUDFLARED_URL, dest: Path | 
     try:
         with httpx.stream("GET", url, follow_redirects=True, timeout=httpx.Timeout(30, read=120)) as r:
             if r.status_code != 200:
-                raise InstallError(f"دانلود نشد (کد {r.status_code}).")
+                raise InstallError(t("remote.download_failed", status=r.status_code))
             total = int(r.headers.get("content-length") or 0)
             done = 0
             with open(part, "wb") as f:
@@ -96,14 +112,14 @@ def install_cloudflared(progress=None, url: str = CLOUDFLARED_URL, dest: Path | 
                     if progress:
                         progress(done, total)
         if done < 1_000_000:
-            raise InstallError("فایل دانلودشده ناقصه.")
+            raise InstallError(t("remote.download_incomplete"))
         ok, detail = signature_ok(part)
         if not ok:
-            raise InstallError(f"امضای فایل دانلودشده معتبر نیست، پس نصب نشد. ({detail})")
+            raise InstallError(t("remote.bad_signature", detail=detail))
         part.replace(dest)
         return str(dest)
     except httpx.HTTPError as exc:
-        raise InstallError("به GitHub وصل نشد. اینترنت یا VPN رو چک کن و دوباره امتحان کن.") from exc
+        raise InstallError(t("remote.github_unreachable")) from exc
     finally:
         if part.exists():
             part.unlink(missing_ok=True)
@@ -136,7 +152,7 @@ def check_reachable(url: str) -> tuple[bool, str]:
     host = url.split("/")[2]
     ips = _public_ips(host)
     if not ips:
-        return False, "هنوز آماده نیست (معمولاً کمتر از یه دقیقه طول می‌کشه)."
+        return False, t("remote.not_ready")
     body = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
         "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "convohub-check", "version": "1"}}}
     target = url.replace(host, ips[0], 1)
@@ -147,10 +163,10 @@ def check_reachable(url: str) -> tuple[bool, str]:
                                        headers={"Host": host, "Accept": "application/json, text/event-stream"})
             r = client.send(req)
     except Exception as exc:  # network trouble of any kind: "not yet", never a crash
-        return False, f"وصل نشد ({type(exc).__name__})."
+        return False, t("remote.connect_failed", error=type(exc).__name__)
     if r.status_code == 200 and "protocolVersion" in r.text:
-        return True, "از اینترنت در دسترسه."
-    return False, f"جواب {r.status_code} اومد."
+        return True, t("remote.reachable")
+    return False, t("remote.bad_status", status=r.status_code)
 
 
 # ---------- the read-only MCP app ----------
@@ -208,9 +224,42 @@ def build_app(secret: str, on_call=None):
 
 # ---------- turning it on and off ----------
 
+def tunnel_config() -> Path:
+    """ConvoHub's own (empty) cloudflared config; its path on a command line marks our tunnel."""
+    return config.DATA_DIR / "remote-tunnel.yml"
+
+
+def stale_tunnel_pids(ps_output: str, own_pid: int | None = None) -> list[int]:
+    """From `ps -axww -o pid=,command=` output: the cloudflared processes started with OUR config file only."""
+    marker = f"--config {tunnel_config()}"
+    target = f"--url http://127.0.0.1:{PORT}"
+    pids = []
+    for line in ps_output.splitlines():
+        pid, _, cmd = line.strip().partition(" ")
+        cmd = cmd.strip()
+        if pid.isdigit() and int(pid) != own_pid and "cloudflared" in cmd and marker in cmd                 and cmd.endswith(target):
+            pids.append(int(pid))
+    return pids
+
+
+def _kill_stale_posix() -> None:
+    import signal
+    try:
+        out = subprocess.run(["ps", "-axww", "-o", "pid=,command="], capture_output=True, text=True,
+                             timeout=15).stdout
+    except (OSError, subprocess.SubprocessError):
+        return
+    for pid in stale_tunnel_pids(out, os.getpid()):
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+
 def _kill_stale(exe: str) -> None:
     """A tunnel to our port left over from a crash (ConvoHub killed, not closed): stop it before starting anew."""
     if sys.platform != "win32":
+        _kill_stale_posix()
         return
     target = f"--url http://127.0.0.1:{PORT}"  # matches our own command line only
     try:
@@ -257,13 +306,17 @@ class Remote:
         url = f"{self.public}/{self.secret}/mcp" if self.running else None
         return {"running": self.running, "url": url, "started_at": self.started_at, "calls": list(self.calls),
                 "error": self.error, "cloudflared": bool(find_cloudflared()), "port": PORT,
-                "install": dict(self.install), "reachable": self.reachable if self.running else None,
+                "install": dict(self.install), "can_install": can_install(),
+                "install_hint": "" if can_install() else tp("remote.install_unavailable"),
+                "reachable": self.reachable if self.running else None,
                 "reach_detail": self.reach_detail if self.running else ""}
 
     # ---------- one-click install of cloudflared ----------
 
     def start_install(self) -> dict:
         with self.lock:
+            if not can_install():  # nothing to download here; the status carries the instructions instead
+                return self.status()
             if self.install["state"] != "downloading" and not find_cloudflared():
                 self.install = {"state": "downloading", "done": 0, "total": 0, "error": None}
                 threading.Thread(target=self._install, daemon=True).start()
@@ -293,8 +346,7 @@ class Remote:
             time.sleep(wait_s)
         if self.running and self.status()["url"] == url:
             self.reachable = False
-            self.reach_detail = ("هنوز از اینترنت در دسترس نیست: " + self.reach_detail +
-                                 " شاید اینترنت یا VPN اجازه نمیده؛ خاموش و دوباره روشنش کن.")
+            self.reach_detail = t("remote.unreachable", detail=self.reach_detail)
 
     def start(self) -> dict:
         with self.lock:
@@ -303,7 +355,7 @@ class Remote:
             self.stop_locked()
             exe = find_cloudflared()
             if not exe:
-                self.error = "ابزار تونل Cloudflare (cloudflared) هنوز نصب نیست. اول «نصب خودکار» رو بزن."
+                self.error = tp("remote.no_cloudflared")
                 return self.status()
             _kill_stale(exe)
             self.secret = secrets.token_urlsafe(24)
@@ -311,7 +363,7 @@ class Remote:
             flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
             # An empty config of our own: otherwise cloudflared reads ~/.cloudflared/config.yml, whose ingress rules
             # (from the user's other tunnels) answer our requests with 404 before they reach us.
-            empty_cfg = config.DATA_DIR / "remote-tunnel.yml"
+            empty_cfg = tunnel_config()
             empty_cfg.parent.mkdir(parents=True, exist_ok=True)
             empty_cfg.write_text("# ConvoHub's temporary tunnel: intentionally empty\n", encoding="utf-8")
             self.proc = subprocess.Popen(
@@ -331,8 +383,7 @@ class Remote:
             if not found.wait(URL_WAIT_S):
                 tail = " ".join(lines[-3:]).strip()[:300]
                 self.stop_locked()
-                self.error = ("تونل Cloudflare بالا نیومد. شاید اینترنت یا VPN اجازه نمیده؛ یه بار دیگه امتحان کن."
-                              + (f"\n{tail}" if tail else ""))
+                self.error = t("remote.tunnel_failed") + (f"\n{tail}" if tail else "")
                 return self.status()
             self.started_at = time.strftime("%Y-%m-%d %H:%M")
             self.error = None

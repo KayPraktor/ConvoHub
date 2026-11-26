@@ -1,49 +1,52 @@
-# افزونه‌ی مرورگر ConvoHub
+# ConvoHub browser extension
 
-با این افزونه، چتی که توی مرورگر خودت باز کردی (Gemini، ChatGPT، Claude، Grok) با یه کلیک میره توی کتابخونه‌ی ConvoHub. بعد از اون، هر وقت اون چت باز باشه و پیام جدید بیاد، خودکار اضافه میشه.
+فارسی: [docs/fa/EXTENSION.md](fa/EXTENSION.md)
 
-- افزونه فقط **متن صفحه‌ای که جلوی چشمته** رو می‌خونه. به کوکی، رمز یا سرورهای این سایت‌ها کاری نداره.
-- فقط با نسخه‌ی **وب** این سایت‌ها کار می‌کنه، نه اپ‌های دسکتاپ.
-- ConvoHub باید روشن باشه.
+With this extension, the chat you have open in your own browser (Gemini, ChatGPT, Claude, Grok) goes into your ConvoHub library with one click. After that, whenever that chat is open and new messages arrive, they are added automatically.
 
-## نصب (Chrome یا Edge)
+- The extension reads only **the text of the page in front of you**. It doesn't touch cookies, passwords or these sites' servers.
+- It works only with the **web** versions of these sites, not their desktop apps.
+- ConvoHub has to be running.
+- The extension shows its buttons and messages in the same language as the ConvoHub app (English or Persian). If ConvoHub has never been reached, it uses your browser's language.
 
-ساده‌ترین راه: توی ConvoHub پایین نوار کناری **«اتصال»** رو بزن. همین مراحل اونجا با مسیر درست پوشه روی کامپیوتر خودت و دکمه‌ی «باز کردن پوشه» هست.
+## Install (Chrome or Edge)
 
-1. **پوشه‌ی افزونه رو پیدا کن:**
-   - **نسخه‌ی نصبی (Setup.exe):** `%LOCALAPPDATA%\Programs\ConvoHub\extension`
-   - **نسخه‌ی سورس:** پوشه‌ی `extension` داخل پوشه‌ی پروژه
-2. توی Chrome بنویس `chrome://extensions` (توی Edge: `edge://extensions`).
-3. **Developer mode** (حالت توسعه‌دهنده) رو روشن کن.
-4. **Load unpacked** رو بزن و پوشه‌ی افزونه رو انتخاب کن.
-5. یه صفحه‌ی چت رو باز یا refresh کن. توی ConvoHub، بالای کتابخونه، نوار **«یه افزونه می‌خواد وصل بشه»** میاد. **قبول** رو بزن.
-   - هر نصب افزونه یه ID مخصوص به خودش داره و ConvoHub فقط افزونه‌ای رو قبول می‌کنه که تو تأییدش کردی.
-   - اگه نوار نیومد، ID رو از کارت افزونه توی `chrome://extensions` کپی کن و توی **«ایجنت»** ← بخش «افزونه‌ی مرورگر» بذار.
+The easiest way: in ConvoHub, click **Connect** at the bottom of the sidebar. The same steps are there, with the right folder path for your computer and an **Open folder** button.
 
-Chrome ممکنه گاهی پیشنهاد بده «افزونه‌های حالت توسعه‌دهنده رو غیرفعال کن». این پیشنهاد برای همه‌ی افزونه‌هاییه که از Web Store نیومدن؛ نادیده‌ش بگیر.
+1. **Find the extension folder:**
+   - **Installed version (Setup.exe):** `%LOCALAPPDATA%\Programs\ConvoHub\extension`
+   - **Source version:** the `extension` folder inside the project folder
+2. In Chrome, go to `chrome://extensions` (in Edge: `edge://extensions`).
+3. Turn on **Developer mode**.
+4. Click **Load unpacked** and pick the extension folder.
+5. Open or refresh a chat page. In ConvoHub, above the library, a bar saying **"An extension wants to connect"** appears. Click **Accept**.
+   - Every installed copy of the extension has its own ID, and ConvoHub accepts only an extension you approved.
+   - If the bar doesn't appear, copy the ID from the extension's card in `chrome://extensions` and paste it under **Agent** → the "Browser extension" section.
 
-## استفاده
+Chrome may sometimes suggest "Turn off extensions in developer mode". It shows this for every extension that didn't come from the Web Store; ignore it.
 
-- **فرستادن یه چت:** صفحه‌ی چت رو باز کن. پایین سمت راست، دکمه‌ی «بفرست به ConvoHub» میاد (گاهی چند ثانیه بعد از باز شدن صفحه). بزنش. افزونه اول صفحه رو تا اول مکالمه بالا می‌بره تا پیام‌های قدیمی هم لود بشن، بعد همه رو می‌فرسته.
-- **همگام‌سازی خودکار:** برای چت‌هایی که یه بار فرستادی، پیام‌های جدید بعد از تموم شدن جواب خودکار اضافه میشن.
-  - روشن یا خاموش کردنش توی تنظیمات افزونه‌ست.
-  - همگام‌سازی خودکار هیچ‌وقت چیزی رو پاک یا جایگزین نمی‌کنه. اگه نتونه پیام‌های جدید رو با قبلی جور کنه، دکمه می‌گه یه بار کلیک کن.
+## Use
 
-## برگردوندن گفتگو به چت (هندآف)
+- **Send a chat:** open the chat page. A **"Send to ConvoHub"** button appears at the bottom right (sometimes a few seconds after the page opens). Click it. The extension first scrolls up to the start of the conversation so older messages load too, then sends all of them.
+- **Automatic sync:** for chats you have sent once, new messages are added automatically after each answer finishes.
+  - You can turn this on or off in the extension's settings.
+  - Automatic sync never deletes or replaces anything. If it can't match the new messages with the earlier ones, the button asks you to click once.
 
-وقتی یه مکالمه رو توی ConvoHub ادامه دادی و می‌خوای برگردی به همون چت Gemini (یا ببریش به یه چت‌بات دیگه):
+## Taking a conversation back to a chat (handoff)
 
-1. توی گفتگوی ConvoHub، بالای صفحه **«ادامه در جای دیگه»** رو بزن، مقصد رو انتخاب کن و **«بفرست به افزونه»** رو بزن.
-2. چت مقصد رو توی مرورگر باز کن (یا refresh کن). بالای دکمه‌ی همیشگی، دکمه‌ی **«گذاشتن متن ConvoHub توی جعبه‌ی پیام»** میاد.
-3. بزنش. متن توی جعبه‌ی پیام قرار می‌گیره. یه نگاه بنداز و **خودت** Send رو بزن. افزونه هیچ‌وقت خودش پیامی نمی‌فرسته.
+When you have continued a conversation in ConvoHub and want to go back to the same Gemini chat (or take it to another chatbot):
 
-- متن تا ۱۵ دقیقه منتظر می‌مونه و فقط یه بار برداشته میشه.
-- اگه جعبه‌ی پیام پیدا نشد، متن کپی میشه تا با Ctrl+V بذاریش.
-- وقتی بعداً اون چت دوباره با ConvoHub همگام بشه، متن هندآف کامل ذخیره نمیشه؛ فقط خط اولش می‌مونه، چون اصلش توی ConvoHub هست.
+1. In the ConvoHub conversation, click **Continue elsewhere** at the top of the page, choose the destination and click **Send to extension**.
+2. Open (or refresh) the destination chat in your browser. Above the usual button, a **"Put the ConvoHub text in the message box"** button appears.
+3. Click it. The text is placed in the message box. Look it over and press Send **yourself**. The extension never sends a message on its own.
 
-## اگه کار نکرد
+- The text waits for up to 15 minutes and can be taken only once.
+- If no message box is found, the text is copied so you can paste it with Ctrl+V.
+- When that chat is later synced with ConvoHub again, the handoff text isn't stored in full; only its first line is kept, because the original is already in ConvoHub.
 
-- **«ConvoHub روشن نیست»:** ConvoHub رو باز کن.
-- **«توی ConvoHub قبول رو بزن»:** مرحله‌ی ۵ بالا.
-- **«پیامی پیدا نشد»:** احتمالاً سایت ساختار صفحه‌اش رو عوض کرده. افزونه یه گزارش از **ساختار** صفحه (بدون متن پیام‌ها) توی پوشه‌ی داده‌های ConvoHub ذخیره می‌کنه: `extension-diagnose.json`. می‌تونی توی GitHub یه Issue باز کنی و اون فایل رو ضمیمه کنی.
-- **بعد از آپدیت ConvoHub:** توی `chrome://extensions` روی دکمه‌ی reload افزونه بزن و صفحه‌ی چت رو refresh کن.
+## If it doesn't work
+
+- **"ConvoHub isn't running":** open ConvoHub.
+- **"Click Accept in ConvoHub":** see step 5 above.
+- **"No messages found":** the site has probably changed the structure of its page. The extension saves a report of the page **structure** (without the message text) in ConvoHub's data folder: `extension-diagnose.json`. You can open an Issue on GitHub and attach that file.
+- **After updating ConvoHub:** click the extension's reload button in `chrome://extensions` and refresh the chat page.

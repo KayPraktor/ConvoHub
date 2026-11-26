@@ -44,7 +44,7 @@ def test_back_to_original_sends_only_the_new_part(client):
 
     res = build(client, chat_id)
     text = res["text"]
-    assert text.startswith("[ConvoHub handoff · «Pricing, continued»")
+    assert text.startswith("[ConvoHub handoff · “Pricing, continued”")  # English: no language chosen yet
     assert "what about a yearly plan?" in text and "yearly at 10x monthly" in text and "x/model-a" in text
     assert "how to price?" not in text  # the original chat already has its own messages
     assert res["count"] == 2
@@ -121,8 +121,8 @@ def test_handoff_pasted_back_is_not_stored_twice(client):
         {"role": "user", "content": text}, {"role": "assistant", "content": "Got it: yearly plan."}]})
     stored = client.get(f"/api/conversations/{gemini_id}").json()["messages"]
     assert len(stored) == 4
-    assert stored[2]["content"].startswith("[ConvoHub handoff · «Pricing, continued»")
-    assert "yearly at 10x monthly" not in stored[2]["content"] and handoff.COMPACT_NOTE in stored[2]["content"]
+    assert stored[2]["content"].startswith("[ConvoHub handoff · “Pricing, continued”")  # English: new install
+    assert "yearly at 10x monthly" not in stored[2]["content"] and handoff.compact_note() in stored[2]["content"]
 
     # Syncing the same page again lines up with what's stored (no "unaligned").
     res = client.post("/api/extension/sync", headers=EXT, json={"url": URL, "messages": [

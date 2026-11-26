@@ -5,7 +5,10 @@ import fnmatch
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+from .. import osinfo
 
 MAX_READ_BYTES = 2 * 1024 * 1024
 DEFAULT_MAX_LINES = 400
@@ -28,7 +31,27 @@ class ToolFailure(Exception):
 
 
 def _norm(p: str) -> str:
+    # Windows: case-insensitive. macOS/Linux: compared exactly as resolved (a path the model writes in other
+    # letter case than the allowed folder is refused, never wrongly allowed, even on case-sensitive volumes).
     return os.path.normcase(os.path.normpath(p))
+
+
+def shell_command(command: str) -> list[str]:
+    """The argv that runs `command`: PowerShell on Windows, the user's login shell elsewhere (macOS: zsh)."""
+    if sys.platform == "win32":
+        return ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " + command]
+    # -l: a login shell reads the user's profile (Homebrew's PATH etc.), as in their own Terminal.
+    return [osinfo.user_shell(), "-lc", command]
+
+
+def _command_env() -> dict | None:
+    if sys.platform == "win32":
+        return None  # inherit, as before
+    env = dict(os.environ)
+    if not env.get("LANG", "").lower().endswith(("utf-8", "utf8")) and not env.get("LC_ALL"):
+        env["LANG"] = "en_US.UTF-8"  # UTF-8 output (apps started from Finder get no locale)
+    return env
 
 
 def is_secret(path: Path) -> bool:
@@ -57,7 +80,7 @@ class Sandbox:
         if not raw or not str(raw).strip():
             raise ToolFailure("path is empty")
         raw = str(raw).strip().strip('"')
-        if re.match(r"^[A-Za-z]:[^\\/]", raw):
+        if sys.platform == "win32" and re.match(r"^[A-Za-z]:[^\\/]", raw):
             raise ToolFailure(f"The path {raw!r} lost its slashes. Write it with forward slashes, like C:/Users/name/folder.")
         p = Path(raw).expanduser()
         if not p.is_absolute():
@@ -201,7 +224,7 @@ class Sandbox:
         info = self.preview_delete(path)
         from send2trash import send2trash
         send2trash(info["path"])
-        return f"Moved {info['target']} {info['path']} to the Recycle Bin."
+        return f"Moved {info['target']} {info['path']} to the {osinfo.trash()}."
 
     def preview_command(self, command: str, cwd: str | None) -> dict:
         if not command or not command.strip():
@@ -217,9 +240,8 @@ class Sandbox:
         info = self.preview_command(command, cwd)
         try:
             proc = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-                 "[Console]::OutputEncoding=[Text.Encoding]::UTF8; " + command],
-                cwd=info["cwd"], capture_output=True, timeout=COMMAND_TIMEOUT_S,
+                shell_command(command),
+                cwd=info["cwd"], capture_output=True, timeout=COMMAND_TIMEOUT_S, env=_command_env(),
                 stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired:

@@ -8,7 +8,7 @@ Imported text never turns into memory by itself (CLAUDE.md hard constraint #2).
 import json
 import re
 
-from . import library
+from . import i18n, library
 from .text import estimate_tokens, normalize_for_search
 
 MAX_NOTE_CHARS = 500
@@ -55,14 +55,17 @@ _SETTING_KEY = "memory_enabled"
 def _clean(text: str) -> str:
     text = re.sub(r"\s+", " ", (text or "")).strip()
     if not text:
-        raise ValueError("متن یادداشت خالیه.")
+        raise ValueError(i18n.t("memory.empty"))
     if len(text) > MAX_NOTE_CHARS:
-        raise ValueError(f"یادداشت حداکثر {MAX_NOTE_CHARS} حرف باشه.")
+        raise ValueError(i18n.t("memory.too_long", n=MAX_NOTE_CHARS))
     return text
 
 
+_TRIM = " .\u060c"  # space, dot and the Persian comma
+
+
 def _same(a: str, b: str) -> bool:
-    return normalize_for_search(a).strip(" .،") == normalize_for_search(b).strip(" .،")
+    return normalize_for_search(a).strip(_TRIM) == normalize_for_search(b).strip(_TRIM)
 
 
 def list_notes(conn, status: str | None = None) -> list[dict]:
@@ -93,7 +96,7 @@ def add(conn, text: str, status: str = "active", source_conversation_id: int | N
             existing["status"] = "active"
         return {**existing, "duplicate": True}
     if conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0] >= MAX_NOTES:
-        raise ValueError(f"حافظه پره ({MAX_NOTES} یادداشت). چندتا رو پاک کن.")
+        raise ValueError(i18n.t("memory.full", n=MAX_NOTES))
     cur = conn.execute("INSERT INTO memories (text, status, source_conversation_id) VALUES (?, ?, ?)",
                        (text, status, source_conversation_id))
     return get(conn, cur.lastrowid)
